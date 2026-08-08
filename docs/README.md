@@ -27,9 +27,10 @@ The current part is:
 9. [Camera development boards](09-camera-development-boards.md) - camera-equipped 32 MB boards, optical modules, driver modes, real demo behavior, and revision traps.
 10. [Camera pipeline and bandwidth](10-camera-pipeline-bandwidth.md) - CSI/ISP/PPA/codec compute split, frame and lane rates, buffer budgets, C/assembly strategy, and acceptance tests.
 11. [Purchasable board and camera kit](11-buyable-board-camera-kit.md) - the exact ESP32-P4-NANO-KIT-A recommendation, Amazon selection checks, OV5647 1080p30 mode, bandwidth, buffers, compute budget, and bring-up route.
-12. [PIE mnemonic inventory](appendix-pie-mnemonics.md) - the 360 unique custom mnemonics present in ESP-IDF v6.0.2's assembler/decode test corpus.
-13. [Register census](appendix-register-census.md) - all 137 numbered HP schemas and the complete per-header MMIO-definition count.
-14. [Sources](sources.md) - primary documents, versions, exact code snapshot, and provenance rules.
+12. [Head-centroid vision at 20--25 fps](12-head-centroid-vision.md) - the exact ESP32-P4-Module-DEV-KIT envelope, measured model budget, centre-heatmap architecture, quantization, memory plan, and acceptance gates.
+13. [PIE mnemonic inventory](appendix-pie-mnemonics.md) - the 360 unique custom mnemonics present in ESP-IDF v6.0.2's assembler/decode test corpus.
+14. [Register census](appendix-register-census.md) - all 137 numbered HP schemas and the complete per-header MMIO-definition count.
+15. [Sources](sources.md) - primary documents, versions, exact code snapshot, and provenance rules.
 
 ## Five rules that dominate performance
 

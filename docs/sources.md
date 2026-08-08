@@ -31,6 +31,12 @@ This reference prefers current primary sources: Espressif's datasheet, TRM, erra
 | [Waveshare ESP32-P4 Platform examples](https://github.com/waveshareteam/ESP32-P4-Platform/tree/028473b3bac120d38589e1c18f8ea90daccc090c) | commit `028473b3bac120d38589e1c18f8ea90daccc090c` | board check, camera/display and simple-video-server routes; supported-board matrix; ESP-IDF version guidance; default OV5647 mode and SCCB pins |
 | [Waveshare ESP32-P4-NANO BSP](https://components.espressif.com/components/waveshare/esp32_p4_nano/versions/3.0.0/readme?language=en) | component v3.0.0 | current board support and explicit rev-v1.3/rev-v3.x compatibility boundary |
 | [Amazon ESP32-P4-NANO camera bundle](https://www.amazon.com/dp/B0DKT7ZP48) | ASIN/title and package statement verified 2026-08-08 | confirms a direct Amazon listing whose title and bullet specify the four-item camera bundle; not used as technical authority or proof of UK stock/price |
+| [Waveshare ESP32-P4-Module-DEV-KIT documentation](https://docs.waveshare.com/ESP32-P4-Module-DEV-KIT) | vendor documentation current at verification | exact selected board, 360-MHz P4, 32-MB PSRAM, 16-MB flash, ESP32-C6, MIPI CSI/DSI, and OV5647 compatibility |
+| [Amazon UK ESP32-P4-Module-DEV-KIT listing](https://www.amazon.co.uk/gp/product/B0FPG45999) | ASIN `B0FPG45999`, inspected 2026-08-08 | identifies the user's base development-board selection; not used as technical authority and does not list a supplied camera |
+| [ESP-DL repository](https://github.com/espressif/esp-dl) | `master` inspected 2026-08-08 | P4 operator support, measured operator timings, static memory planner, dual-core convolution, and model deployment format |
+| [ESP-DL human-face detector](https://github.com/espressif/esp-dl/tree/master/models/human_face_detect) | `master` inspected 2026-08-08 | P4 preprocessing, inference, postprocessing, model-file sizes, and five-landmark output baseline |
+| [ESP-Detection repository](https://github.com/espressif/esp-detection) | `main` inspected 2026-08-08 | ESPDet-Pico parameter/FLOP counts and end-to-end P4 latency at 224 x 224 and 160 x 288 |
+| [ESP-DL quantization guide](https://docs.espressif.com/projects/esp-dl/en/latest/tutorials/how_to_quantize_model.html) and [TQT guide](https://docs.espressif.com/projects/esp-dl/en/latest/tutorials/quantize_model_with_TQT.html) | latest inspected 2026-08-08 | P4 per-channel Conv/Gemm, symmetric power-of-two quantization, PTQ/QAT/TQT, and board-aligned evaluation |
 
 ## Useful ESP-IDF subsections
 
