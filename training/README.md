@@ -76,12 +76,14 @@ heatmap moment at cell centers and then adds the learned offset.
 total = 1.00 * modified_focal(heatmap)
       + 1.00 * smooth_l1(offset at owned centers)
       + 0.15 * smooth_l1(normalized size at owned centers)
-      + 0.05 * C-decoder-consistency loss
+      + 0.00 * C-decoder-consistency loss initially
       + 0.10 * mean_square(padding channels)
 ```
 
-Start without the decoder-consistency term for a short warm-up if optimization is
-unstable. Empty images still contribute heatmap negatives. Regression losses are
+The initial implementation leaves decoder consistency disabled. A floating-point
+ground-truth-anchor surrogate can disagree with the predicted-argmax and later INT8
+decoder. Introduce it only with exact output fake quantization and a parity-tested peak
+selection rule. Empty images still contribute heatmap negatives. Regression losses are
 normalized by representable owned centers, not by image pixels.
 
 The first ablations should change one item at a time: Gaussian radius, heatmap focal

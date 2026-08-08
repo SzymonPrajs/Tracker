@@ -22,7 +22,7 @@
     "heatmap": 1.0,
     "offset": 1.0,
     "size": 0.15,
-    "decode_consistency": 0.05,
+    "decode_consistency": 0.0,
     "padding": 0.1,
     "focal_alpha": 2.0,
     "focal_beta": 4.0,
