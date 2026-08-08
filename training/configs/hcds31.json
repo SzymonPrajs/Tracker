@@ -1,0 +1,47 @@
+{
+  "schema_version": "tracker-training-config-v1",
+  "model": {
+    "name": "hcds31",
+    "input_height": 160,
+    "input_width": 288,
+    "input_channels": 3,
+    "output_stride": 4,
+    "output_channels": 16,
+    "logical_channels": 5,
+    "normalization": "rgb_u8_minus_128_div_128"
+  },
+  "targets": {
+    "mode": "all_heads",
+    "gaussian_combine": "max",
+    "sigma_box_scale": 0.15,
+    "sigma_min": 1.0,
+    "sigma_max": 3.0,
+    "collision_owner": "visibility_area_stable_index"
+  },
+  "loss": {
+    "heatmap": 1.0,
+    "offset": 1.0,
+    "size": 0.15,
+    "decode_consistency": 0.05,
+    "padding": 0.1,
+    "focal_alpha": 2.0,
+    "focal_beta": 4.0,
+    "smooth_l1_beta": 0.1111111111111111
+  },
+  "optimizer": {
+    "name": "adamw",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 5.0,
+    "warmup_epochs": 5,
+    "schedule": "cosine"
+  },
+  "synthetic_smoke": {
+    "train_samples": 128,
+    "validation_samples": 32,
+    "batch_size": 8,
+    "epochs": 2,
+    "maximum_heads": 5,
+    "seed": 20260808
+  }
+}

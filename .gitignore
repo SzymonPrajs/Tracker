@@ -8,3 +8,7 @@ firmware/sdkconfig
 firmware/sdkconfig.old
 __pycache__/
 *.pyc
+.venv*/
+training/artifacts/
+training/runs/
+training/*.egg-info/
