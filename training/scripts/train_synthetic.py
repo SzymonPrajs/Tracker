@@ -27,8 +27,13 @@ from tracker_training.engine import (  # noqa: E402
     write_json,
 )
 from tracker_training.losses import HCDS31Loss  # noqa: E402
-from tracker_training.model import HCDS31  # noqa: E402
+from tracker_training.model import (  # noqa: E402
+    HCDS31,
+    OUTPUT_ENCODING_ID,
+    OUTPUT_EXPECTED_EXPONENT,
+)
 from tracker_training.synthetic import SyntheticSceneDataset  # noqa: E402
+from tracker_training.targets import TargetConfig  # noqa: E402
 
 
 def arguments() -> argparse.Namespace:
@@ -39,6 +44,51 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--epochs", type=int)
     parser.add_argument("--smoke", action="store_true", help="run a small but real optimization")
     return parser.parse_args()
+
+
+def validate_training_config(config: dict[str, object]) -> None:
+    """Fail if declarative checkpoint metadata differs from executed code."""
+    if config.get("schema_version") != "tracker-training-config-v1":
+        raise ValueError("unsupported training config schema_version")
+    target = TargetConfig()
+    expected_sections: dict[str, dict[str, object]] = {
+        "model": {
+            "name": "hcds31",
+            "input_height": target.input_height,
+            "input_width": target.input_width,
+            "input_channels": 3,
+            "output_stride": target.output_stride,
+            "output_channels": 16,
+            "logical_channels": 5,
+            "normalization": "rgb_u8_minus_128_div_128",
+            "output_encoding": OUTPUT_ENCODING_ID,
+            "required_output_exponent": OUTPUT_EXPECTED_EXPONENT,
+        },
+        "targets": {
+            "mode": "all_heads",
+            "gaussian_combine": "max",
+            "sigma_box_scale": target.sigma_scale,
+            "sigma_min": target.sigma_min,
+            "sigma_max": target.sigma_max,
+            "collision_owner": "visibility_area_stable_index",
+        },
+        "optimizer": {
+            "name": "adamw",
+            "warmup_epochs": 0,
+            "schedule": "cosine",
+        },
+    }
+    for section_name, expected in expected_sections.items():
+        section = config.get(section_name)
+        if not isinstance(section, dict):
+            raise ValueError(f"training config section {section_name!r} is missing")
+        for key, expected_value in expected.items():
+            actual = section.get(key)
+            if actual != expected_value:
+                raise ValueError(
+                    f"training config {section_name}.{key}={actual!r}; "
+                    f"implementation requires {expected_value!r}"
+                )
 
 
 def make_loader(
@@ -62,6 +112,9 @@ def make_loader(
 def main() -> int:
     args = arguments()
     config = json.loads(args.config.read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise ValueError("training config root must be an object")
+    validate_training_config(config)
     smoke = config["synthetic_smoke"]
     seed = int(smoke["seed"])
     epochs = args.epochs or int(smoke["epochs"])
@@ -97,7 +150,7 @@ def main() -> int:
     with torch.no_grad():
         model.head.bias.zero_()
         model.head.bias[0] = -2.19
-    criterion = HCDS31Loss()
+    criterion = HCDS31Loss.from_config(config["loss"])
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(config["optimizer"]["learning_rate"]),

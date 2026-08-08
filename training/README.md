@@ -22,6 +22,39 @@ does not provide a supported direct path into ESP-PPQ. The optional MLX implemen
 therefore has an isomorphic PyTorch mirror and a strict weight/output parity gate. A
 checkpoint that fails that gate must not be exported.
 
+## Mac quick start
+
+The setup script requires Apple Silicon, macOS, and Python 3.11 or 3.12. It deliberately
+creates separate environments because ESP-PPQ pins an older ONNX package than a general
+training environment may otherwise select.
+
+```sh
+make training-setup
+make training-check
+make training-smoke
+make training-export
+make training-onnx-check
+make training-calibration-smoke
+make training-quantize-smoke
+make training-quantized-compare
+```
+
+`training-smoke` performs real float32 optimization on MPS using deterministic,
+procedurally generated multi-head scenes. The final four commands are explicitly a
+converter smoke test: their two calibration tensors are not a substitute for a
+representative 128--512-frame calibration set or a disjoint held-out test manifest.
+
+To exercise only the MLX/PyTorch graph and checkpoint bridge:
+
+```sh
+PYTHONPATH=training PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+  .tools/tracker-train/bin/python -m pytest -q training/tests/test_mlx_bridge.py
+```
+
+The complete training environment includes MLX, but the shipped trainer uses PyTorch
+MPS so its checkpoint is directly exportable. A future MLX-native optimizer can use the
+same model and bridge only if the strict layer-by-layer parity tests remain green.
+
 ## Resolution decision
 
 The student network always receives `160 x 288` RGB. Do not train this student at a
@@ -78,6 +111,8 @@ total = 1.00 * modified_focal(heatmap)
       + 0.15 * smooth_l1(normalized size at owned centers)
       + 0.00 * C-decoder-consistency loss initially
       + 0.10 * mean_square(padding channels)
+      + 0.01 * mean_square(background offset/size channels)
+      + 0.01 * encoded-range saturation penalty
 ```
 
 The initial implementation leaves decoder consistency disabled. A floating-point
@@ -116,6 +151,29 @@ signed input transform with an input quantization exponent of `-7`.
 
 ESP32-P4 uses symmetric power-of-two quantization, per-channel Conv/GEMM, per-tensor
 other operators, and round-half-even behavior. `.espdl` output is target-specific.
+
+### Physical HWC16 output encoding
+
+The float training model keeps ordinary semantic units. Export creates a non-mutating
+clone and folds channel gains `[2, 16, 16, 16, 16, 0, ..., 0]` into the final Conv,
+then clamps its physical output to `[-16, 15.5]`. With the required shared ESP-DL
+output exponent `-3` (scale `0.125`), the INT8 tensor has this contract:
+
+```text
+channel 0:     q = round(16 * heatmap_logit)      (Q4)
+channels 1-2: q = round(128 * x/y offset)        (Q7)
+channels 3-4: q = round(128 * normalized size)   (Q7)
+channels 5-15: exactly zero
+```
+
+This preserves sub-pixel offsets despite ESP-DL assigning a single per-tensor scale to
+the output. The ONNX file records the encoding and required exponent as metadata. The
+quantizer verifies both metadata and the exponent selected by ESP-PPQ, and refuses to
+publish artifacts if either differs. The comparison tool converts encoded tensors back
+to semantic units before decoding and measuring centroid drift.
+
+The clamp becomes an ONNX `Clip` node. ESP-DL supports INT8 `Clip`; it still requires
+physical-board profiling because support does not establish its latency or memory cost.
 
 ## Honest validation
 

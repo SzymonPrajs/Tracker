@@ -8,7 +8,9 @@
     "output_stride": 4,
     "output_channels": 16,
     "logical_channels": 5,
-    "normalization": "rgb_u8_minus_128_div_128"
+    "normalization": "rgb_u8_minus_128_div_128",
+    "output_encoding": "hcds31-output-q4-q7-v1",
+    "required_output_exponent": -3
   },
   "targets": {
     "mode": "all_heads",
@@ -24,6 +26,8 @@
     "size": 0.15,
     "decode_consistency": 0.0,
     "padding": 0.1,
+    "background_regression": 0.01,
+    "encoded_saturation": 0.01,
     "focal_alpha": 2.0,
     "focal_beta": 4.0,
     "smooth_l1_beta": 0.1111111111111111
@@ -33,7 +37,7 @@
     "learning_rate": 0.001,
     "weight_decay": 0.0001,
     "gradient_clip_norm": 5.0,
-    "warmup_epochs": 5,
+    "warmup_epochs": 0,
     "schedule": "cosine"
   },
   "synthetic_smoke": {

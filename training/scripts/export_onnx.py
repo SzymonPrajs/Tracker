@@ -18,6 +18,8 @@ for import_root in (REPO_ROOT, TRAINING_ROOT):
         sys.path.insert(0, str(import_root))
 
 ONNX_OPSET = 18
+OUTPUT_ENCODING_METADATA_KEY = "tracker.output_encoding"
+OUTPUT_EXPONENT_METADATA_KEY = "tracker.output_exponent"
 
 
 def require_torch() -> Any:
@@ -108,6 +110,39 @@ def load_checkpoint(model: Any, checkpoint: Path) -> None:
     model.load_state_dict(state_dict, strict=True)
 
 
+def make_output_encoded_clone(model: Any, encoding: str) -> Any:
+    from tracker_training.model import (
+        OUTPUT_ENCODING_ID,
+        make_encoded_export_model,
+    )
+
+    if encoding != OUTPUT_ENCODING_ID:
+        raise ValueError(f"unsupported output encoding: {encoding!r}")
+    encoded = make_encoded_export_model(model)
+    if encoded is model:
+        raise RuntimeError("output encoding must return a non-mutating model clone")
+    return encoded
+
+
+def write_output_encoding_metadata(model_path: Path, encoding: str) -> None:
+    try:
+        import onnx
+    except ImportError as exc:
+        raise SystemExit(
+            "ONNX is required. Run training/scripts/setup_mac.sh --training-only first."
+        ) from exc
+    from tracker_training.model import OUTPUT_ENCODING_ID, OUTPUT_EXPECTED_EXPONENT
+
+    if encoding != OUTPUT_ENCODING_ID:
+        raise ValueError(f"unsupported output encoding: {encoding!r}")
+    model = onnx.load(str(model_path))
+    metadata = {item.key: item.value for item in model.metadata_props}
+    metadata[OUTPUT_ENCODING_METADATA_KEY] = encoding
+    metadata[OUTPUT_EXPONENT_METADATA_KEY] = str(OUTPUT_EXPECTED_EXPONENT)
+    onnx.helper.set_model_props(model, metadata)
+    onnx.save(model, str(model_path))
+
+
 def export_static_onnx(
     model: Any,
     output_path: Path,
@@ -115,12 +150,15 @@ def export_static_onnx(
     *,
     seed: int = 7,
     write_reference: bool = False,
+    output_encoding: str | None = None,
 ) -> dict[str, Path]:
     torch = require_torch()
     if len(input_shape) != 4 or input_shape[0] != 1:
         raise ValueError("input shape must be fixed NCHW with batch exactly 1")
     if any(dimension <= 0 for dimension in input_shape):
         raise ValueError("all input dimensions must be positive")
+    if output_encoding is not None:
+        model = make_output_encoded_clone(model, output_encoding)
 
     torch.manual_seed(seed)
     model = model.to("cpu").eval()
@@ -144,6 +182,8 @@ def export_static_onnx(
         do_constant_folding=True,
         dynamo=False,
     )
+    if output_encoding is not None:
+        write_output_encoding_metadata(output_path, output_encoding)
 
     result = {"onnx": output_path}
     if write_reference:
@@ -185,6 +225,11 @@ def main() -> int:
     parser.add_argument("--input-shape", type=parse_shape, default=(1, 3, 160, 288))
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--write-reference", action="store_true")
+    parser.add_argument(
+        "--output-encoding",
+        choices=("hcds31-output-q4-q7-v1",),
+        help="clone and physically encode the trained output head for deployment",
+    )
     args = parser.parse_args()
 
     try:
@@ -203,14 +248,17 @@ def main() -> int:
         load_checkpoint(model, args.checkpoint)
     elif not args.smoke_model:
         parser.error("production model export requires --checkpoint")
-
-    artifacts = export_static_onnx(
-        model,
-        args.output,
-        args.input_shape,
-        seed=args.seed,
-        write_reference=args.write_reference,
-    )
+    try:
+        artifacts = export_static_onnx(
+            model,
+            args.output,
+            args.input_shape,
+            seed=args.seed,
+            write_reference=args.write_reference,
+            output_encoding=args.output_encoding,
+        )
+    except (TypeError, ValueError) as exc:
+        parser.error(str(exc))
     for name, path in artifacts.items():
         print(f"{name}: {path}")
     return 0

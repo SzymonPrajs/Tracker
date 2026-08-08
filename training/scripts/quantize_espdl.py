@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import shutil
 import sys
 import tempfile
@@ -18,8 +19,14 @@ except ImportError as exc:
     ) from exc
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+TRAINING_ROOT = SCRIPT_DIR.parent
+for import_root in (SCRIPT_DIR, TRAINING_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
+
+OUTPUT_ENCODING_METADATA_KEY = "tracker.output_encoding"
+OUTPUT_EXPONENT_METADATA_KEY = "tracker.output_exponent"
+DEFAULT_OUTPUT_ENCODING = "hcds31-output-q4-q7-v1"
 
 
 def require_quantization_stack() -> tuple[Any, Any, Any, Any]:
@@ -52,6 +59,57 @@ def fixed_input_shape(model_path: Path) -> tuple[int, int, int, int]:
     if len(shape) != 4 or shape[0] != 1:
         raise ValueError(f"expected static batch-one NCHW input, found {shape}")
     return shape  # type: ignore[return-value]
+
+
+def verify_onnx_output_encoding(model_path: Path, expected_encoding: str) -> int:
+    try:
+        import onnx
+    except ImportError as exc:
+        raise SystemExit(
+            "ONNX is required. Run training/scripts/setup_mac.sh --quantize-only first."
+        ) from exc
+    from tracker_training.model import OUTPUT_ENCODING_ID, OUTPUT_EXPECTED_EXPONENT
+
+    if expected_encoding != OUTPUT_ENCODING_ID:
+        raise ValueError(f"unsupported output encoding: {expected_encoding!r}")
+    model = onnx.load(str(model_path))
+    metadata = {item.key: item.value for item in model.metadata_props}
+    actual_encoding = metadata.get(OUTPUT_ENCODING_METADATA_KEY)
+    if actual_encoding != expected_encoding:
+        raise ValueError(
+            f"ONNX output encoding is {actual_encoding!r}; expected {expected_encoding!r}"
+        )
+    exponent_text = metadata.get(OUTPUT_EXPONENT_METADATA_KEY)
+    if exponent_text != str(OUTPUT_EXPECTED_EXPONENT):
+        raise ValueError(
+            f"ONNX output exponent contract is {exponent_text!r}; "
+            f"expected {OUTPUT_EXPECTED_EXPONENT}"
+        )
+    return OUTPUT_EXPECTED_EXPONENT
+
+
+def verify_quantized_output_exponent(graph: Any, expected_exponent: int) -> int:
+    outputs = graph.outputs
+    if set(outputs) != {"head"}:
+        raise ValueError(f"expected one quantized graph output named 'head', found {list(outputs)}")
+    config = outputs["head"].source_op_config
+    if config is None or config.scale is None:
+        raise ValueError("quantized head output has no scale")
+    scale_value = config.scale.detach().cpu().numpy().reshape(-1)
+    if scale_value.size != 1:
+        raise ValueError("encoded head requires one per-tensor output scale")
+    scale = float(scale_value[0])
+    if not math.isfinite(scale) or scale <= 0.0:
+        raise ValueError(f"quantized head output scale is invalid: {scale}")
+    exponent = int(round(math.log2(scale)))
+    if not math.isclose(scale, 2.0**exponent, rel_tol=0.0, abs_tol=1e-12):
+        raise ValueError(f"quantized head output scale is not power-of-two: {scale}")
+    if exponent != expected_exponent:
+        raise ValueError(
+            f"quantized head output exponent is {exponent} (scale {scale}); "
+            f"encoding requires {expected_exponent}"
+        )
+    return exponent
 
 
 def _split_samples(array: np.ndarray, expected: tuple[int, ...]) -> Iterable[np.ndarray]:
@@ -158,6 +216,12 @@ def main() -> int:
         help="exact ONNX node name for an INT16 island in an otherwise INT8 graph",
     )
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument(
+        "--output-encoding",
+        choices=(DEFAULT_OUTPUT_ENCODING,),
+        default=DEFAULT_OUTPUT_ENCODING,
+        help="required ONNX output encoding and post-quantization exponent contract",
+    )
     parser.add_argument("--error-report", action="store_true")
     parser.add_argument(
         "--quantized-output-npy",
@@ -181,6 +245,10 @@ def main() -> int:
         parser.error("--synthetic-calibration must be positive")
     if args.int16_op and args.bits != 8:
         parser.error("--int16-op is only meaningful for an INT8 base graph")
+
+    expected_output_exponent = verify_onnx_output_encoding(
+        args.model, args.output_encoding
+    )
 
     if not args.skip_check:
         from check_onnx import inspect_model
@@ -212,9 +280,10 @@ def main() -> int:
         # ESP-PPQ simplifies and rewrites its ONNX input. Preserve the reviewed source.
         quantization_input = Path(temporary) / args.model.name
         shutil.copy2(args.model, quantization_input)
+        quantization_output = Path(temporary) / args.output.name
         graph = quantize(
             onnx_import_file=str(quantization_input),
-            espdl_export_file=str(args.output.resolve()),
+            espdl_export_file=str(quantization_output),
             calib_dataloader=tensors,
             calib_steps=args.calibration_steps,
             input_shape=list(input_shape),
@@ -227,14 +296,26 @@ def main() -> int:
             error_report=args.error_report,
             export_config=True,
             export_test_values=not args.no_test_values,
+            metadata_props={
+                OUTPUT_ENCODING_METADATA_KEY: args.output_encoding,
+                OUTPUT_EXPONENT_METADATA_KEY: str(expected_output_exponent),
+            },
             verbose=1,
         )
+        output_exponent = verify_quantized_output_exponent(
+            graph, expected_output_exponent
+        )
+        for suffix in (".espdl", ".json", ".info"):
+            source = quantization_output.with_suffix(suffix)
+            if source.exists():
+                shutil.copy2(source, args.output.with_suffix(suffix))
     counts: dict[str, int] = {}
     for operation in graph.operations.values():
         platform = str(operation.platform).split(".")[-1]
         counts[platform] = counts.get(platform, 0) + 1
     print(f"espdl: {args.output.resolve()}")
     print(f"quantized platforms: {counts}")
+    print(f"output encoding: {args.output_encoding}, exponent: {output_exponent}")
     if args.quantized_output_npy is not None:
         captured = save_quantized_output(
             graph, tensors[0], args.quantized_output_npy

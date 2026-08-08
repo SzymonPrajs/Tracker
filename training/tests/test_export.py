@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import pickle
 import random
+from types import SimpleNamespace
 from pathlib import Path
 
 import numpy as np
@@ -16,8 +17,17 @@ TRAINING_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TRAINING_ROOT / "scripts"))
 
 from check_onnx import check_parity, inspect_model  # noqa: E402
-from export_onnx import export_static_onnx, load_checkpoint, make_smoke_model  # noqa: E402
-from quantize_espdl import save_quantized_output  # noqa: E402
+from export_onnx import (  # noqa: E402
+    export_static_onnx,
+    load_checkpoint,
+    make_output_encoded_clone,
+    make_smoke_model,
+)
+from quantize_espdl import (  # noqa: E402
+    save_quantized_output,
+    verify_onnx_output_encoding,
+    verify_quantized_output_exponent,
+)
 
 
 def test_static_opset18_export_and_parity(tmp_path: Path) -> None:
@@ -155,3 +165,68 @@ def test_quantized_output_capture_rejects_multiple_outputs(tmp_path: Path) -> No
             tmp_path / "quantized.npy",
             executor_type=MultipleOutputExecutor,
         )
+
+
+def test_encoded_export_is_non_mutating_and_writes_contract_metadata(
+    tmp_path: Path,
+) -> None:
+    import torch
+    from tracker_training.model import HCDS31, OUTPUT_ENCODING_GAINS, OUTPUT_ENCODING_ID
+
+    semantic = HCDS31().eval()
+    original = {name: value.detach().clone() for name, value in semantic.state_dict().items()}
+    encoded = make_output_encoded_clone(semantic, OUTPUT_ENCODING_ID)
+    output = tmp_path / "encoded.onnx"
+    export_static_onnx(
+        semantic,
+        output,
+        (1, 3, 160, 288),
+        output_encoding=OUTPUT_ENCODING_ID,
+    )
+    summary = inspect_model(output)
+
+    for name, value in semantic.state_dict().items():
+        torch.testing.assert_close(value, original[name], rtol=0, atol=0)
+    gains = torch.tensor(OUTPUT_ENCODING_GAINS)
+    torch.testing.assert_close(
+        encoded.head.weight,
+        semantic.head.weight * gains[:, None, None, None],
+        rtol=0,
+        atol=0,
+    )
+    assert verify_onnx_output_encoding(output, OUTPUT_ENCODING_ID) == -3
+    assert summary["operators"]["Clip"] == 1
+
+
+def test_export_rejects_double_output_encoding(tmp_path: Path) -> None:
+    from tracker_training.model import HCDS31, OUTPUT_ENCODING_ID
+
+    encoded = make_output_encoded_clone(HCDS31(), OUTPUT_ENCODING_ID)
+    with pytest.raises(ValueError, match="already encoded"):
+        export_static_onnx(
+            encoded,
+            tmp_path / "double-encoded.onnx",
+            (1, 3, 160, 288),
+            output_encoding=OUTPUT_ENCODING_ID,
+        )
+
+
+def _quantized_graph_with_scale(scale: object) -> SimpleNamespace:
+    config = SimpleNamespace(scale=scale)
+    output = SimpleNamespace(source_op_config=config)
+    return SimpleNamespace(outputs={"head": output})
+
+
+def test_quantized_output_exponent_contract_accepts_minus_three() -> None:
+    import torch
+
+    graph = _quantized_graph_with_scale(torch.tensor(0.125))
+    assert verify_quantized_output_exponent(graph, -3) == -3
+
+
+def test_quantized_output_exponent_contract_rejects_drift() -> None:
+    import torch
+
+    graph = _quantized_graph_with_scale(torch.tensor(0.25))
+    with pytest.raises(ValueError, match="exponent is -2"):
+        verify_quantized_output_exponent(graph, -3)

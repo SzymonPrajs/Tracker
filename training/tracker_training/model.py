@@ -3,10 +3,35 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+import copy
 
 import torch
 from torch import nn
 from torch.nn import functional as F
+
+
+OUTPUT_ENCODING_ID = "hcds31-output-q4-q7-v1"
+OUTPUT_EXPECTED_EXPONENT = -3
+OUTPUT_ENCODING_GAINS = (
+    2.0,
+    16.0,
+    16.0,
+    16.0,
+    16.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+)
+OUTPUT_ENCODED_MINIMUM = -16.0
+OUTPUT_ENCODED_SATURATION_LIMIT = 15.5
 
 
 class ConvBNAct(nn.Module):
@@ -78,6 +103,7 @@ class HCDS31(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
+        self.encoded_output_clamp = False
         self.stem = ConvBNAct(3, 16, 3, stride=2)
 
         self.s1_down = DownBlock(16, 32)
@@ -125,7 +151,14 @@ class HCDS31(nn.Module):
                 "p3": p3, "p2": p2, "p1": p1}
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.head(self.forward_features(x)["p1"])
+        output = self.head(self.forward_features(x)["p1"])
+        if self.encoded_output_clamp:
+            output = torch.clamp(
+                output,
+                min=OUTPUT_ENCODED_MINIMUM,
+                max=OUTPUT_ENCODED_SATURATION_LIMIT,
+            )
+        return output
 
     def iter_deploy_layers(
         self,
@@ -138,3 +171,24 @@ class HCDS31(nn.Module):
 
     def convolution_weight_count(self) -> int:
         return sum(conv.weight.numel() for _, conv, _ in self.iter_deploy_layers())
+
+
+def make_encoded_export_model(model: HCDS31) -> HCDS31:
+    """Clone ``model`` and fold the Q4/Q7 physical encoding into its head.
+
+    The source model remains a semantic training model. With output exponent
+    -3, the returned model produces Q4 heatmap-logit bytes and Q7 offset/size
+    bytes. Padding head rows are made exactly zero by their zero gains.
+    """
+    if not isinstance(model, HCDS31):
+        raise TypeError("model must be an HCDS31 instance")
+    if model.encoded_output_clamp:
+        raise ValueError("model output is already encoded")
+    encoded = copy.deepcopy(model)
+    gains = encoded.head.weight.new_tensor(OUTPUT_ENCODING_GAINS)
+    with torch.no_grad():
+        encoded.head.weight.mul_(gains[:, None, None, None])
+        if encoded.head.bias is not None:
+            encoded.head.bias.mul_(gains)
+    encoded.encoded_output_clamp = True
+    return encoded
