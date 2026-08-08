@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+.cache/
+.tools/
+build/
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+__pycache__/
+*.pyc
