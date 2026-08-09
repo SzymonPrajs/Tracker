@@ -1,4 +1,3 @@
-# Isolated from MLX training because ESP-PPQ constrains ONNX to <1.18.
 numpy==2.3.5
 torch==2.9.0
 onnx==1.17.0

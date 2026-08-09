@@ -1,5 +1,0 @@
-# The selected 360 MHz Waveshare product may contain pre-v3 silicon.
-# Confirm the eFuse revision on the delivered unit before flashing.
-CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
-CONFIG_ESP32P4_REV_MIN_100=y
-CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_360=y
