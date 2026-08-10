@@ -1,9 +1,11 @@
 # Sources and verification boundary
 
-Consulted for this planning pass on 2026-08-10. A working link or paper does not
-admit a dataset or prove pixel rights. Exact claims and blockers are recorded
-below; prefer pinned releases/commits at implementation time because `latest`
-documentation can change.
+Consulted for this planning pass on 2026-08-10. The user has authorized all
+listed datasets for personal, non-commercial research. The ledger therefore
+records supported claims and technical/semantic constraints rather than
+licence gates. Complete moderate sources and bounded deterministic subsamples of
+large sources are both valid packets. Prefer pinned releases/commits at implementation time because
+`latest` documentation can change.
 
 ## ESP32-P4, camera, and deployment
 
@@ -25,6 +27,16 @@ documentation can change.
 - [ESP-IDF binary-size guidance](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-guides/performance/size.html)
 - [ESP-IDF compiler/build Kconfig reference](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-reference/kconfig-reference.html)
 
+## ESP-IDF and VS Code setup
+
+- [ESP-IDF v6.0.2 macOS installation](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/get-started/macos-setup.html)
+- [EIM command-line installation](https://docs.espressif.com/projects/idf-im-ui/en/latest/cli_installation.html)
+- [EIM CLI commands](https://docs.espressif.com/projects/idf-im-ui/en/latest/cli_commands.html)
+- [ESP-IDF extension installation](https://docs.espressif.com/projects/vscode-esp-idf-extension/en/latest/installation.html)
+- [ESP-IDF extension commands](https://docs.espressif.com/projects/vscode-esp-idf-extension/en/latest/commands.html)
+- [ESP32-P4 project build/flash/monitor](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/get-started/start-project.html)
+- [ESP32-P4 RAM-use guidance](https://docs.espressif.com/projects/esp-idf/en/stable/esp32p4/api-guides/performance/ram-usage.html)
+
 ## Training and quantization
 
 - [ESP-DL repository and current version notes](https://github.com/espressif/esp-dl)
@@ -42,34 +54,36 @@ documentation can change.
 
 ## Dataset evidence ledger
 
-| Source | Exact claim supported | Primary evidence | Licence/access status |
+| Source | Exact claim supported | Primary evidence | Research-use note |
 |---|---|---|---|
-| CrowdHuman | head, visible/full body, ignore annotations | [download/terms page](https://www.crowdhuman.org/download.html) | research/non-commercial candidate; no redistribution |
-| RPEE-Heads | distant/dense visible-head benchmark across recordings | [paper](https://arxiv.org/abs/2411.18164), [data/licence evidence](https://juser.fz-juelich.de/record/1041726/files/RPEE-Heads_Benchmark_A_Dataset_and_Empirical_Comparison_of_Deep_Learning_Algorithms_for_Pedestrian_Head_Detection_in_Crowds-1.pdf?version=1) | candidate; preserve DOI and recording split |
-| JRDB-Pose | robot sequences with head/body/pose/occlusion semantics | [dataset page](https://jrdb.erc.monash.edu.au/dataset/) | research-only candidate; sequence split required |
-| SCUT-HEAD | classroom and internet full-head boxes | [repository](https://github.com/HCIILAB/SCUT-HEAD-Dataset-Release) | academic/research candidate |
-| Open Images V7 | exact class boxes, verification, group/coverage attributes | [downloads/files](https://storage.googleapis.com/openimages/web/download_v7.html), [coverage and licence facts](https://storage.googleapis.com/openimages/web/factsfigures_v7.html) | conditional; exact MIDs, body-part coverage files, attributes, and per-image licences required |
-| COCO 2017 | auxiliary person boxes/masks/keypoints and image metadata | [official site](https://cocodataset.org/) | auxiliary; preserve per-image source licence metadata |
-| JHU-CROWD++ | head points/approximate geometry, weather/light diversity | [paper](https://arxiv.org/abs/2004.03597) | gated; pixel terms unresolved |
-| NWPU-Crowd | extreme-density crowd points/boxes | [paper/project](https://arxiv.org/abs/2001.03360) | gated; access/licence review required |
-| HollywoodHeads | movie-frame head boxes | [project](https://www.di.ens.fr/willow/research/headdetection/) | gated; pixel rights unresolved |
-| WIDER FACE | face boxes across scale/pose/events | [paper](https://arxiv.org/abs/1511.06523) | gated; face-only and pixel terms unresolved |
-| DARK FACE | real low-light face annotations | [challenge page](https://flyywh.github.io/CVPRW2019LowLight/) | gated; face-only and pixel terms unresolved |
-| UFDD | unconstrained face-detection stress evidence | [paper](https://arxiv.org/abs/1804.10275) | gated; face-only and pixel terms unresolved |
-| OCHuman | heavily occluded body masks/pose | [repository](https://github.com/liruilong940607/OCHumanApi) | gated auxiliary; repository terms do not alone prove pixel rights |
-| CrowdPose | crowded body keypoints | [repository](https://github.com/jeffffffli/CrowdPose) | gated auxiliary; pixel rights unresolved |
-| WiderPerson | diverse person boxes | [paper](https://arxiv.org/abs/1909.12118) | gated auxiliary; pixel terms unresolved |
-| FishEye8K | native fisheye person boxes from 18 cameras | [repository](https://github.com/MoyoG/FishEye8K), [paper](https://arxiv.org/abs/2305.17449) | gated validation; person-only and dataset licence unresolved |
-| NightOwls | night pedestrian annotations with size/ignore semantics | [annotation examples](https://www.nightowls-dataset.org/examples/), [details](https://www.nightowls-dataset.org/about/), [terms](https://www.nightowls-dataset.org/download/) | gated subset; non-commercial and large; background is not `no_human` |
-| WoodScape | automotive native-fisheye masks/boxes | [repository](https://github.com/valeoai/woodscape) | excluded by default; proprietary pixels |
+| CrowdHuman | head, visible/full body, ignore annotations | [download page](https://www.crowdhuman.org/download.html) | complete packet if within cap; preserve head/body/ignore semantics |
+| RPEE-Heads | distant/dense visible-head benchmark across recordings | [paper](https://arxiv.org/abs/2411.18164), [data record](https://juser.fz-juelich.de/record/1041726/files/RPEE-Heads_Benchmark_A_Dataset_and_Empirical_Comparison_of_Deep_Learning_Algorithms_for_Pedestrian_Head_Detection_in_Crowds-1.pdf?version=1) | complete packet if within cap; preserve recording split |
+| JRDB-Pose | robot sequences with head/body/pose/occlusion semantics | [dataset page](https://jrdb.erc.monash.edu.au/dataset/) | sequence-stratified packet |
+| SCUT-HEAD | classroom and internet full-head boxes | [repository](https://github.com/HCIILAB/SCUT-HEAD-Dataset-Release) | complete packet if within cap; preserve full-head semantics |
+| Open Images V7 | exact class boxes, verification, group/coverage attributes | [downloads/files](https://storage.googleapis.com/openimages/web/download_v7.html), [coverage facts](https://storage.googleapis.com/openimages/web/factsfigures_v7.html) | deterministic class/coverage subset; parse exact MIDs and attributes |
+| COCO 2017 | auxiliary person boxes/masks/keypoints and image metadata | [official site](https://cocodataset.org/) | diverse bounded auxiliary packet |
+| JHU-CROWD++ | head points/approximate geometry, weather/light diversity | [paper](https://arxiv.org/abs/2004.03597) | scale/weather/light-stratified packet |
+| NWPU-Crowd | extreme-density crowd points/boxes | [paper/project](https://arxiv.org/abs/2001.03360) | bounded extreme-density packet |
+| HollywoodHeads | movie-frame head boxes | [project](https://www.di.ens.fr/willow/research/headdetection/) | movie-grouped bounded packet |
+| WIDER FACE | face boxes across scale/pose/events | [paper](https://arxiv.org/abs/1511.06523) | event/scale-stratified auxiliary packet |
+| DARK FACE | real low-light face annotations | [challenge page](https://flyywh.github.io/CVPRW2019LowLight/) | bounded low-light packet |
+| UFDD | unconstrained face-detection stress evidence | [paper](https://arxiv.org/abs/1804.10275) | bounded stress packet |
+| OCHuman | heavily occluded body masks/pose | [repository](https://github.com/liruilong940607/OCHumanApi) | bounded occlusion packet |
+| CrowdPose | crowded body keypoints | [repository](https://github.com/jeffffffli/CrowdPose) | bounded pose packet |
+| WiderPerson | diverse person boxes | [paper](https://arxiv.org/abs/1909.12118) | bounded person/context packet |
+| FishEye8K | native fisheye person boxes from 18 cameras | [repository](https://github.com/MoyoG/FishEye8K), [paper](https://arxiv.org/abs/2305.17449) | camera-stratified native-fisheye packet |
+| NightOwls | night pedestrian annotations with size/ignore semantics | [annotation examples](https://www.nightowls-dataset.org/examples/), [details](https://www.nightowls-dataset.org/about/), [download](https://www.nightowls-dataset.org/download/) | bounded partial retrieval only; never fetch roughly 285 GB for a small retained subset |
+| WoodScape | automotive native-fisheye masks/boxes | [repository](https://github.com/valeoai/woodscape) | camera/scene-stratified native-fisheye packet |
 
 ## Important unresolved facts
 
-- The physical ESP32-P4 chip revision and delivered OV5647 module/cable have not
-  been inspected.
+- The fixed board's ESP32-P4 silicon revision and connected cable have not been
+  inspected.
 - RAW10→YUV420→small GRAY8 is a documented/source-supported candidate, not a
   validated end-to-end board result.
-- Dataset pages that expose files without clear pixel licensing remain gated.
+- Individual dataset hosts may still require login, manual acceptance, or retry;
+  those are operational blockers to record. A very large source also requires a
+  partial-retrieval path before it enters the bounded corpus.
 - Product thresholds for accuracy, false positives, memory, latency, and FPS
   remain to be declared at the entry/freeze boundaries in the controlling plan.
 - No dataset has been downloaded and no new implementation has begun under this

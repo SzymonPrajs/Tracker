@@ -172,6 +172,25 @@ only if the actual inference path uses JPEG. Fit ranges later from OV5647 frames
 rather than assuming generic camera noise is representative, and keep all
 pre-characterization ranges explicitly provisional.
 
+## Input-representation simulation
+
+Photometric augmentation first constructs one common latent sensor exposure.
+The measured input profile then produces one of three static branches:
+
+- OV5647-like RAW10 Bayer: apply the measured colour-filter pattern, black and
+  white levels, gain/noise, packing-independent numeric values, and the exact
+  Bayer-aware reduction plus INT8 mapping used on the board;
+- ISP luminance: reproduce measured ISP operations, Y range, PPA scaling, and
+  GRAY8/INT8 rounding;
+- ISP RGB: reproduce measured ISP colour/tone operations, PPA scaling/format,
+  channel order, range, and INT8 rounding.
+
+RAW10 is not treated as ten-bit luminance. Synthetic Bayer conversion from
+ordinary RGB data is an approximation whose parameters are fitted on paired or
+controlled OV5647 captures and whose value is separately ablated. Geometry is
+applied before the camera representation is sampled so Bayer phase and final
+resize behavior remain explicit.
+
 The starting mixture is a configuration, not a permanent constant. It must
 contain identity, flat, mild, medium, and strong branches and must report their
 observed frequencies. Preserve a meaningful clean branch so robustness training

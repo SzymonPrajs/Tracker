@@ -18,18 +18,21 @@ Never promote evidence across these levels without the corresponding test.
 
 | Area | Required adversarial checks |
 |---|---|
-| downloads | URL/version/license/checksum/archive-type verification; safe extraction; resumability |
+| development setup | pinned EIM/ESP-IDF/tool versions; terminal and VS Code Doctor/build/flash/monitor/debug equivalence |
+| acquisition | deterministic selection/caps, URL/version/streamed checksum, safe extraction, one-source staging, 2× no-crop/no-upscale conversion, atomic packet promotion, verified raw cleanup |
+| packets | independent schema/hash/count validator, readable manifest/README, immutable version, parent/source identities, no raw archives or permanent raster-target cache |
+| code packages | independent install/check/test, public API/CLI parity, declared one-way imports, no cycles, no hidden filesystem/network side effects |
 | annotations | native-count reconciliation, coordinate convention, orientation, clipping, zero area, duplicate IDs, ignore flags |
 | splits | immutable publisher split, exact hash, perceptual hash, embedding-neighbour review; internal video/movie/camera/location grouping |
 | negatives | exact MID/class coverage and thresholds, human audit, hard-negative review, no inference from missing labels; NightOwls background is not `no_human` |
 | targets | conformance fixtures plus sealed audit gold; semantic-specific empty/single/crowded/edge/truncated/overlap cases; same-cell collision report |
 | augmentation | identity bypass, monotonicity, sector Jacobian and corner-ray seam tests, no crop, round trip, label alignment, replay, mixture frequencies |
 | training | one-batch, tiny overfit, finite loss, resume equivalence, deterministic replay, no test leakage |
-| search | fixed budget, validation-only selection, Pareto report, multiple finalist seeds |
+| search | validation-only selection, smaller/larger neighbours, measured resource feedback, Pareto report, multiple finalist seeds |
 | export | supported static operators, shape inference, PyTorch/ONNX parity, separated output semantics |
 | quantization | representative training-only calibration, separate stress pack, exact preprocessing, PTQ/AutoQuant/TQT/QAT ablations, task metrics, saturation, multiple gold tensors |
 | firmware | format negotiation, buffer alignment/ownership, reference differential tests, build-profile independence |
-| board | sustained capture, stage latency, end-to-end latency, FPS, drops, corruption, heaps, PSRAM contention, accuracy |
+| board | internal/PSRAM/cache benchmarks, byte ledger, sustained capture, stage/end-to-end latency, FPS, drops, corruption, heaps, contention, accuracy |
 
 ## Model metrics
 
@@ -53,7 +56,7 @@ architecture search, QAT, calibration, and threshold selection.
 
 ## Hardware metrics
 
-For each camera/color/input candidate, record:
+For each RAW-derived Bayer/luminance/RGB input candidate, record:
 
 - sensor opportunity count and captured/completed/dropped/corrupt frames;
 - integrated CSI+ISP frame-completion throughput/latency, observable PPA,
@@ -63,6 +66,8 @@ For each camera/color/input candidate, record:
 - full and small buffer addresses, sizes, alignment, queue depth, and ownership;
 - free/minimum/largest internal and PSRAM blocks after each allocation;
 - model parameters, activation memory, static-planner placement, and load time;
+- internal SRAM and PSRAM sequential read/write/copy curves by working-set size,
+  alignment, cache configuration, core count, and CPU/supported-DMA path;
 - PSRAM traffic/contention and effects of two versus three capture buffers,
   labelling every traffic value as arithmetic estimate, hardware-counter
   measurement, or contention proxy;
@@ -85,11 +90,32 @@ planning pass. No value may be created or relaxed after observing the
 evaluation it governs. Twenty to twenty-five FPS remains a target until the
 physical system meets the complete contract.
 
+## Resource-feedback acceptance
+
+The selected model is the highest-performing validated candidate inside the
+complete sustained envelope, not merely the smallest or largest artifact. For
+every finalist:
+
+1. compare predicted and measured parameters, peak/lifetime activations,
+   internal/PSRAM placement, byte movement, latency, and FPS;
+2. if there is headroom, evaluate a larger input/model neighbour;
+3. if any hard limit fails, evaluate a smaller or structurally more efficient
+   neighbour and remove avoidable buffer traffic first;
+4. if prediction and measurement disagree, update the resource model and rerun
+   all candidates whose ranking can change;
+5. stop only when neighbouring growth yields no useful validation gain within
+   the envelope or when a hard product bound prevents it.
+
+This loop may reopen input representation/shape, topology, training,
+quantization, activation scheduling, buffer count/placement, or firmware. It
+may not reopen or inspect the final test set.
+
 Float baselines, architecture search, quantization-method selection, threshold
 selection, and ablations use validation data only. The final test remains
-sealed until the quantization recipe, model, preprocessing, and
-candidate-specific threshold are frozen. Then evaluate the selected INT8 model
-and its matched float parent together exactly once.
+sealed until the quantization recipe, model, preprocessing,
+candidate-specific threshold, firmware build, buffer schedule, and memory
+placement are frozen after board feedback. Then evaluate the selected INT8
+model and its matched float parent together exactly once, with no retuning.
 
 ## Plan-order audit
 

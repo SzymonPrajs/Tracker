@@ -24,7 +24,7 @@ x_hat = q * 2^e
 The pinned ESP32-P4 target plus ESP-DL/ESP-PPQ versions define quantization and
 rounding rules. Emitted `.espdl`, `.info`, and `.json` metadata define the
 actual tensor exponents, channel layout, padding, and exported graph. Do not
-carry constants from the archived model into the rebuild.
+carry constants between separately exported models.
 
 ## Build the pipeline
 
@@ -110,7 +110,7 @@ harness or multiple artifacts; `Model::test()` alone is a smoke/alignment check.
 
 Selection uses threshold-free AP/precision-recall, per-stratum error, false
 positives, saturation/outlier reports, model and activation memory, and later
-board latency. Each candidate's deployment threshold is selected on validation
+board latency and measured bytes moved. Each candidate's deployment threshold is selected on validation
 under the same certified-negative false-positive policy and then frozen. Also
 report a common-threshold diagnostic to expose calibration drift. Never tune a
 threshold on final test.
@@ -124,5 +124,17 @@ No quantized model is accepted until:
 - host simulation and board golden outputs match within declared integer
   tolerances;
 - the quantization recipe, model, preprocessing, and candidate-specific
-  threshold are frozen before the final test is opened;
+  threshold are reproducible for firmware integration;
 - board memory and latency pass final physical validation.
+
+Quantized board profiling feeds the resource search before final freeze. If an
+INT8 candidate leaves reproducible memory/bandwidth/latency headroom and a
+larger neighbour improves validation, grow the model or input. If activation
+placement, traffic, or sustained latency fails, shrink or restructure and
+repeat float-parent training plus the declared quantization recipe. Never
+compare only `.espdl` file size: peak activations and the complete camera loop
+are co-equal constraints.
+
+The final test remains sealed throughout this feedback. It opens only after the
+selected quantized model and the complete firmware/buffer/memory-placement stack
+are frozen together.
