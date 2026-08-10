@@ -14,6 +14,7 @@ Commands in this snapshot assume this directory is the working directory. Data
 training or evaluation cannot run until the dataset is intentionally rebuilt
 using the preserved scripts in `training/datasets/`.
 
-The active design and research documentation remains in `../docs/`. The
-physical ESP32-P4 camera-to-centroid path has not yet been validated at 20--25
-fps or for application accuracy.
+The clean rebuild plan is in `../README.md` with supporting documents in
+`../docs/`. The pre-rebuild numbered documentation is preserved in
+`documentation-archive/`. The physical ESP32-P4 camera-to-centroid path has not
+yet been validated at 20--25 fps or for application accuracy.
