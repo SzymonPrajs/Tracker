@@ -1,7 +1,0 @@
-{
-    "idf.customExtraVars": {},
-    "idf.currentSetup": "/Users/szymon/.espressif/v6.0.2/esp-idf",
-    "idf.openOcdConfigs": [
-        "board/esp32p4-builtin.cfg"
-    ]
-}
