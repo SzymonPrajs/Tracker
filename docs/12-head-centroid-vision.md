@@ -2,6 +2,11 @@
 
 Last verified: 2026-08-08.
 
+Status after the 2026-08-10 workspace reset: this is a design and acceptance
+reference. The earlier firmware/model implementation is archived under
+`../previous/`, and no physical-board camera-to-centroid measurement has yet
+validated the 20--25 fps target or application accuracy.
+
 ## Decision
 
 The selected `ESP32-P4-Module-DEV-KIT` can plausibly track a face or head centre at 20--25 frames per second. It cannot run a useful learned pixel-to-pixel segmenter over a full 1920 x 1080 frame at that cadence.

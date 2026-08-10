@@ -3,6 +3,25 @@
 This folder is a design reference for algorithms targeting the 32 MB ESP32-P4, specifically the current `ESP32-P4NRW32X` system-in-package part. It is written for C, compiler-assisted optimization, hand-written RISC-V assembly, DMA-heavy pipelines, and the ESP32-P4 Processor Instruction Extension (PIE).
 
 Last source verification: 2026-08-08.
+Last workspace-alignment review: 2026-08-10.
+
+## Current workspace boundary
+
+As of 2026-08-10, this repository has been reset to a documentation-first
+workspace. The prior implementation, training pipeline, firmware, toolchains,
+build outputs, and model artifacts are preserved under `../previous/`; they are
+an archived reference, not the active baseline for new work.
+
+Downloaded and derived dataset payloads were removed during the reset. The
+acquisition, conversion, training, and evaluation scripts remain under
+`../previous/training/`, but any data-dependent command requires an intentional
+rebuild first. Historical dataset and training measurements remain documented
+with their original dates and should not be read as evidence that the data is
+still present locally.
+
+No camera-to-centroid run on the physical ESP32-P4 board has yet established
+20--25 fps or application accuracy. Those figures remain design targets subject
+to the acceptance gates in document 12.
 
 ## Read this first
 
@@ -27,10 +46,13 @@ The current part is:
 9. [Camera development boards](09-camera-development-boards.md) - camera-equipped 32 MB boards, optical modules, driver modes, real demo behavior, and revision traps.
 10. [Camera pipeline and bandwidth](10-camera-pipeline-bandwidth.md) - CSI/ISP/PPA/codec compute split, frame and lane rates, buffer budgets, C/assembly strategy, and acceptance tests.
 11. [Purchasable board and camera kit](11-buyable-board-camera-kit.md) - the exact ESP32-P4-NANO-KIT-A recommendation, Amazon selection checks, OV5647 1080p30 mode, bandwidth, buffers, compute budget, and bring-up route.
-12. [Head-centroid vision at 20--25 fps](12-head-centroid-vision.md) - the exact ESP32-P4-Module-DEV-KIT envelope, measured model budget, centre-heatmap architecture, quantization, memory plan, and acceptance gates.
-13. [PIE mnemonic inventory](appendix-pie-mnemonics.md) - the 360 unique custom mnemonics present in ESP-IDF v6.0.2's assembler/decode test corpus.
-14. [Register census](appendix-register-census.md) - all 137 numbered HP schemas and the complete per-header MMIO-definition count.
-15. [Sources](sources.md) - primary documents, versions, exact code snapshot, and provenance rules.
+12. [Head-centroid vision at 20--25 fps](12-head-centroid-vision.md) - the exact ESP32-P4-Module-DEV-KIT envelope, source-backed timing anchors, design model budget, centre-heatmap architecture, quantization, memory plan, and acceptance gates.
+13. [Amazon UK shopping list](13-amazon-uk-shopping-list.md) - the selected ESP32-P4-Module-DEV-KIT, Prime-verified camera/power/cable/breakout/storage parts, antenna decision, battery safety and a complete soldering bench.
+14. [Head-detection datasets](14-head-detection-datasets.md) - source selection, licensing boundaries, validated historical acquisition results, canonical representation, and reset status.
+15. [Camera and lens augmentation](15-camera-augmentation.md) - historical training results, image/label geometry, robustness ranges, and reproduction boundary.
+16. [PIE mnemonic inventory](appendix-pie-mnemonics.md) - the 360 unique custom mnemonics present in ESP-IDF v6.0.2's assembler/decode test corpus.
+17. [Register census](appendix-register-census.md) - all 137 numbered HP schemas and the complete per-header MMIO-definition count.
+18. [Sources](sources.md) - primary documents, versions, exact code snapshot, and provenance rules.
 
 ## Five rules that dominate performance
 

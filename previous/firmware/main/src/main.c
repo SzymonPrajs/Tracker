@@ -4,12 +4,15 @@
 #include <string.h>
 
 #include "tracker.h"
+#include "tracker_model_runner.h"
 #include "tracker_target_kernels.h"
 
 static int8_t head[3][3][16] __attribute__((aligned(16)));
 
 void app_main(void)
 {
+    tracker_model_test_and_profile();
+
     memset(head, INT8_MIN, sizeof(head));
     head[1][1][0] = 100;
     head[1][1][1] = 32;

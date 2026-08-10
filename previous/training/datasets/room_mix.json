@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "purpose": "Initial ESP32 room camera: usually one to four medium or large heads",
+  "epoch_samples": "all_head_training_rows",
+  "source_probability_mass": {
+    "open_images_human_head": 0.42,
+    "scut_head": 0.18,
+    "r2ppe": 0.15,
+    "rpee_heads": 0.03,
+    "vgg_hollywood_heads": 0.04,
+    "hollywood_heads": 0.18
+  },
+  "head_count_weight": {
+    "empty": 0.35,
+    "one_to_four": 1.0,
+    "five_to_eight": 0.5,
+    "more_than_eight": 0.15
+  },
+  "face_only_policy": "Retain original face boxes and face heatmaps, but exclude them from full-head heatmap and size training."
+}
