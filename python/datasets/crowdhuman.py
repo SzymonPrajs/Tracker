@@ -5,15 +5,16 @@ import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from common.files import google_drive, start_output, unzip
+from common.files import download, start_output, unzip
 from common.images import compact_images, write_labels
 
 
-ANNOTATIONS = "1UUTea5mYqvlUObsC1Z8CFldHJAtLtMX3"
+BASE = "https://huggingface.co/datasets/yongAgain/CrowdHuman/resolve/main/"
+ANNOTATIONS = BASE + "annotation_train.odgt"
 PARTS = [
-    "134QOvaatwKdy0iIeNqA_p-xkAhkV4F8Y",
-    "17evzPh7gc1JBNvnW1ENXLy5Kr4Q_Nnla",
-    "1tdp0UCgxrqy1B6p8LkR-Iy0aIJ8l4fJW",
+    BASE + "CrowdHuman_train01.zip",
+    BASE + "CrowdHuman_train02.zip",
+    BASE + "CrowdHuman_train03.zip",
 ]
 
 
@@ -73,15 +74,15 @@ def run(output: Path, config: dict, limit: int | None = None) -> int:
     records = []
     with TemporaryDirectory(prefix="tracker_crowdhuman_") as temporary:
         raw = Path(temporary)
-        annotation_path = google_drive(
+        annotation_path = download(
             ANNOTATIONS, raw / "annotation_train.odgt", "CrowdHuman annotations"
         )
         annotations = _read_annotations(annotation_path)
-        for number, file_id in enumerate(PARTS, 1):
+        for number, url in enumerate(PARTS, 1):
             if len(records) >= target:
                 break
-            archive = google_drive(
-                file_id, raw / f"train_{number}.zip", f"CrowdHuman part {number}/3"
+            archive = download(
+                url, raw / f"train_{number}.zip", f"CrowdHuman part {number}/3"
             )
             extracted = unzip(
                 archive, raw / f"part_{number}", f"CrowdHuman part {number}/3"

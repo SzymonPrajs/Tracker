@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -19,10 +20,16 @@ def safe_name(value: str) -> str:
 def _open(item: dict[str, Any]) -> Image.Image:
     if "path" in item:
         return Image.open(item["path"])
-    with requests.get(item["url"], timeout=60) as response:
-        response.raise_for_status()
-        data = response.content
-    return Image.open(io.BytesIO(data))
+    for attempt in range(3):
+        try:
+            with requests.get(item["url"], timeout=60) as response:
+                response.raise_for_status()
+                return Image.open(io.BytesIO(response.content))
+        except requests.RequestException:
+            if attempt == 2:
+                raise
+            time.sleep(attempt + 1)
+    raise RuntimeError("unreachable")
 
 
 def _compact(
@@ -70,18 +77,28 @@ def compact_images(
     workers: int,
     label: str,
 ) -> list[dict[str, Any]]:
-    def convert(item: dict[str, Any]) -> dict[str, Any]:
-        return _compact(item, output, width, height)
+    def convert(item: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+        try:
+            return _compact(item, output, width, height), None
+        except Exception as error:
+            return None, f"{item['id']}: {error}"
 
+    records = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        return list(
-            tqdm(
-                pool.map(convert, items),
-                total=len(items),
-                desc=f"{label}: images",
-                unit="image",
-            )
+        results = tqdm(
+            pool.map(convert, items),
+            total=len(items),
+            desc=f"{label}: images",
+            unit="image",
         )
+        for record, error in results:
+            if error:
+                tqdm.write(f"{label}: skipped {error}")
+            elif record:
+                records.append(record)
+    if items and not records:
+        raise RuntimeError(f"{label}: every image failed")
+    return records
 
 
 def write_labels(output: Path, records: list[dict[str, Any]]) -> None:

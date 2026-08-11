@@ -42,7 +42,8 @@ def _annotations(path: Path, image_root: Path) -> list[dict]:
                 "labels": boxes,
             }
         )
-        line += 2 + count
+        # WIDER writes one all-zero placeholder row after a zero box count.
+        line += 3 if count == 0 else 2 + count
     return items
 
 
