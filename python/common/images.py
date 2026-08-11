@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+import io
+import json
+import re
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Any
+
+import requests
+from PIL import Image
+from tqdm import tqdm
+
+
+def safe_name(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_")
+
+
+def _open(item: dict[str, Any]) -> Image.Image:
+    if "path" in item:
+        return Image.open(item["path"])
+    with requests.get(item["url"], timeout=60) as response:
+        response.raise_for_status()
+        data = response.content
+    return Image.open(io.BytesIO(data))
+
+
+def _compact(
+    item: dict[str, Any], output: Path, width: int, height: int
+) -> dict[str, Any]:
+    with _open(item) as source:
+        image = source.convert("RGB")
+        old_width, old_height = image.size
+        image.thumbnail((width, height), Image.Resampling.LANCZOS)
+        new_width, new_height = image.size
+        filename = f"{safe_name(str(item['id']))}.webp"
+        image.save(output / "images" / filename, "WEBP", quality=80, method=4)
+
+    x_scale = new_width / old_width
+    y_scale = new_height / old_height
+    labels = []
+    for label in item.get("labels", []):
+        x, y, box_width, box_height = label["box"]
+        scaled = dict(label)
+        scaled["box"] = [
+            round(x * x_scale, 3),
+            round(y * y_scale, 3),
+            round(box_width * x_scale, 3),
+            round(box_height * y_scale, 3),
+        ]
+        labels.append(scaled)
+
+    return {
+        "image": f"images/{filename}",
+        "source": item["source"],
+        "source_id": str(item["id"]),
+        "split": item.get("split", "train"),
+        "width": new_width,
+        "height": new_height,
+        "labels": labels,
+        "negative_for": item.get("negative_for", []),
+    }
+
+
+def compact_images(
+    items: list[dict[str, Any]],
+    output: Path,
+    width: int,
+    height: int,
+    workers: int,
+    label: str,
+) -> list[dict[str, Any]]:
+    def convert(item: dict[str, Any]) -> dict[str, Any]:
+        return _compact(item, output, width, height)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(
+            tqdm(
+                pool.map(convert, items),
+                total=len(items),
+                desc=f"{label}: images",
+                unit="image",
+            )
+        )
+
+
+def write_labels(output: Path, records: list[dict[str, Any]]) -> None:
+    temporary = output / "labels.jsonl.tmp"
+    with temporary.open("w", encoding="utf-8") as file:
+        for record in records:
+            file.write(json.dumps(record, separators=(",", ":")) + "\n")
+    temporary.replace(output / "labels.jsonl")

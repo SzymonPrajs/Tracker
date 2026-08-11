@@ -1,0 +1,12 @@
+# Compact images are kept at roughly twice the intended model input size.
+image_width = 400
+image_height = 200
+workers = 8
+
+# Change these numbers whenever you want a smaller or larger corpus.
+[datasets]
+wider_face = 12880       # faces in varied scenes
+scut_head = 3405         # full-head boxes (training splits)
+crowdhuman = 15000       # heads, visible bodies, and full bodies
+coco_people = 10000      # people in ordinary scenes
+coco_negatives = 10000   # COCO images without a person annotation
