@@ -10,6 +10,7 @@ config/            values changed between runs
 docs/              one short document per project phase
 python/
   download.py      download and compact the datasets
+  preprocess.py    preview augmentation and training targets
   datasets/        one adapter per external dataset
   common/          shared Python helpers
 firmware/          ESP-IDF source, assembly, build output, and flashing notes
@@ -24,10 +25,10 @@ This is the permanent style of the project:
 - dataset-specific parsing only in `python/datasets/`;
 - no extra project layers or generated bookkeeping.
 
-Later phases will add `python/preprocess.py`, `python/train.py`, and
-`python/quantize.py` only when those phases are actually implemented. Training
-and quantization experiments will be represented by small config files, so a
-Git commit records the exact values used.
+Later phases will add `python/train.py` and `python/quantize.py` only when those
+phases are actually implemented. Training and quantization experiments will be
+represented by small config files, so a Git commit records the exact values
+used.
 
 ## Download the data
 
@@ -42,6 +43,17 @@ datasets. Each source is downloaded, converted to compact WebP files no larger
 than 400 by 200, and its raw archive is removed before the next source begins.
 
 See [`docs/download.md`](docs/download.md) for the exact mixture and commands.
+
+## Inspect preprocessing
+
+```bash
+python3 python/preprocess.py
+```
+
+This writes one local contact sheet to `previews/preprocess.png`. The left side
+of each tile shows transformed boxes and the right side shows the heatmap. It
+does not duplicate the dataset. Edit [`config/preprocess.toml`](config/preprocess.toml)
+to change input size, RGB/luminance mode, or augmentation strengths.
 
 ## Phases
 

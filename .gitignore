@@ -6,5 +6,6 @@
 
 # Downloaded images and generated firmware files stay local.
 /data/
+/previews/
 /firmware/build/*
 !/firmware/build/.gitkeep

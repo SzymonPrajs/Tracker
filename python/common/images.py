@@ -17,6 +17,36 @@ def safe_name(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_")
 
 
+def clip_labels(
+    labels: list[dict[str, Any]], width: int, height: int
+) -> list[dict[str, Any]]:
+    clipped = []
+    for label in labels:
+        x, y, box_width, box_height = label["box"]
+        x1 = max(0.0, x)
+        y1 = max(0.0, y)
+        x2 = min(float(width), x + box_width)
+        y2 = min(float(height), y + box_height)
+        if x2 <= x1 or y2 <= y1:
+            continue
+        result = dict(label)
+        result["box"] = [
+            round(x1, 3),
+            round(y1, 3),
+            round(x2 - x1, 3),
+            round(y2 - y1, 3),
+        ]
+        if any(
+            abs(before - after) > 5e-4
+            for before, after in zip(
+                (x, y, x + box_width, y + box_height), (x1, y1, x2, y2)
+            )
+        ):
+            result["truncated"] = True
+        clipped.append(result)
+    return clipped
+
+
 def _open(item: dict[str, Any]) -> Image.Image:
     if "path" in item:
         return Image.open(item["path"])
@@ -56,6 +86,7 @@ def _compact(
             round(box_height * y_scale, 3),
         ]
         labels.append(scaled)
+    labels = clip_labels(labels, new_width, new_height)
 
     return {
         "image": f"images/{filename}",
