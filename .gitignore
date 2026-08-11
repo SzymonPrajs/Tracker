@@ -1,0 +1,10 @@
+.DS_Store
+Python/.venv/
+Python/.pytest_cache/
+Python/.ruff_cache/
+**/__pycache__/
+*.py[cod]
+
+# Downloaded metadata, raw staging, compact packets, and acquisition reports.
+# Scripts, configs, and tests remain tracked.
+/data/

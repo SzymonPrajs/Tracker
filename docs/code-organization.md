@@ -2,179 +2,142 @@
 
 ## Design rule
 
-The implementation is a set of small importable packages and thin scripts, not
-one training program with every responsibility mixed together. Each package can
-be read, installed, tested, and invoked independently. A package may import only
-declared lower-level packages; it may not open another stage's private files or
-depend on its CLI implementation.
+The code should be obvious from the directory names. Python responsibilities
+are separate modules inside one project, not a collection of nested projects
+whose package, source, and distribution names repeat one another.
 
-There are two distinct meanings of “packet”:
+There are two distinct meanings to keep clear:
 
-- a **code package** is a small Python library with a public API and tests;
-- an **artifact packet** is an immutable self-describing output directory that
-  another package can validate and consume.
+- `Python/data_pipeline/` is the importable code library;
+- a **data packet** is an immutable directory produced by that library.
 
-## Planned Python workspace
+## Python layout
 
 ```text
-python/
-  pyproject.toml                 # workspace tooling and one locked environment
-  packages/
-    tracker_contracts/           # schemas, typed IDs, geometry, manifests
-    tracker_sources/             # adapter protocol and one module per source
-    tracker_packets/             # bounded staging and canonical packet builder
-    tracker_targets/             # heatmaps, offsets, sizes, validity masks
-    tracker_augmentation/        # geometry, sensor/input simulation, replay
-    tracker_models/              # static model definitions and cost metadata
-    tracker_metrics/             # threshold-free and operating-point metrics
-    tracker_training/            # loop, sampler, checkpoints, run orchestration
-    tracker_export/              # PyTorch-to-ONNX parity and export records
-    tracker_quantization/        # ESP-PPQ PTQ/AutoQuant/TQT/QAT orchestration
-    tracker_evaluation/          # validation/final reports and strata
-    tracker_hardware_results/    # benchmark schema, parser, resource predictor
+Python/
+  README.md                       # first place to understand the Python code
+  pyproject.toml                  # one environment and one lock
+  data_pipeline/                  # the single importable library
+    __main__.py                   # thin command-line entry point
+    config.py                     # strict resolved configuration
+    records.py                    # canonical vector/provenance schemas
+    acquire.py                    # one-source staging and cleanup lifecycle
+    transfer.py                   # bounded metadata and selected-image transfer
+    images.py                     # orientation, resize, encoding, label transform
+    sources/                      # external dataset adapters only
+      manifest.py                 # strict predeclared source manifest
+      open_images.py              # Open Images metadata and selection
+    packets/                      # durable output responsibilities only
+      build.py                    # create an unpromoted packet
+      validate.py                 # independent packet validator
+      read.py                     # public training/evaluation reader
+  tests/                          # unit, adversarial, and integration tests
+configs/data/                     # reviewed run configurations
+tools/data/                       # only thin terminal helpers if needed
 ```
 
-Every directory has its own `pyproject.toml`, `README.md`, `src/<package>/`,
-`tests/`, and tiny synthetic or explicitly versioned fixtures. The workspace
-lock gives reproducible integration, while each package's metadata permits an
-independent editable install and test. Dataset adapters are separate modules
-behind one protocol; adding or fixing one source does not edit a giant chain of
-source-specific `if` statements.
+The names answer the navigation questions directly: external dataset logic is
+under `sources`; durable artifact logic is under `packets`; all other files name
+the operation they own. There is no generic `utils.py`, repeated `tracker_`
+prefix, `packages/` layer, or nested `src/<same-name>` layer.
 
 ## Dependency direction
 
 ```mermaid
 flowchart TD
-  C["contracts"] --> S["sources"]
-  C --> P["packets"]
-  S --> P
-  C --> T["targets"]
-  C --> A["augmentation"]
-  C --> M["models"]
-  C --> R["metrics"]
-  P --> N["training"]
-  T --> N
-  A --> N
-  M --> N
-  R --> N
-  M --> E["export"]
-  E --> Q["quantization"]
-  R --> Q
-  P --> V["evaluation"]
-  M --> V
-  R --> V
-  C --> H["hardware results"]
-  H --> N
-  H --> Q
-  H --> V
+  C["config and records"] --> S["source adapters"]
+  C --> I["image conversion"]
+  S --> A["acquisition orchestration"]
+  I --> P["packet builder"]
+  P --> A
+  P --> V["independent packet validator"]
+  V --> R["packet reader"]
 ```
 
-Arrows mean “is allowed to be imported by.” Cycles are forbidden. Hardware
-result parsers expose measured resource contracts; Python training code does not
-import firmware, invoke VS Code, or parse ad-hoc serial text directly.
+The command line calls these public library APIs. Tests call the same APIs.
+Sources never import packets or training. The data pipeline never imports
+targets, augmentation, models, or firmware.
 
-## Package contract
+## Code contract
 
-Every code package provides:
+The project provides:
 
-1. a one-paragraph responsibility and explicit non-responsibilities;
-2. a small typed public API exported from one place;
-3. a thin `python -m <package>` CLI that calls the same API used by tests;
-4. a fully resolved configuration schema with unknown-field rejection;
-5. unit tests, adversarial cases, and minimal fixtures;
-6. an independent `check` command that does not require later stages;
-7. structured errors and machine-readable reports rather than log parsing;
-8. no hidden network access, filesystem traversal, global mutable registry, or
-   import-time work.
+1. strict configuration with unknown-field rejection;
+2. typed public records exported from named modules;
+3. `python -m data_pipeline` commands for check, dry-run, acquire, validate,
+   and inspect;
+4. unit, adversarial, and real-path smoke tests;
+5. structured JSON errors and reports rather than log parsing;
+6. no network access or filesystem writes at import time;
+7. no hidden raw-retention or overwrite switch.
 
-Shared utilities enter `tracker_contracts` only when they are genuinely stable
-cross-stage contracts. Convenience functions remain with their owner; there is
-no miscellaneous `utils.py` dumping ground.
+Dataset-specific adapters remain separate files so one parser can change without
+creating a large source-specific conditional chain. If the library eventually
+becomes too large, a measured ownership problem—not a preference for packaging
+machinery—must justify splitting it.
 
-## Artifact packet contract
+## Data packet contract
 
-Every durable stage output follows the same readable envelope:
+Every promoted source packet is directly readable:
 
 ```text
-<artifact>/
+<packet>/
   README.md
-  manifest.json
-  payload/
+  packet.json
+  selection.json
+  records.jsonl
+  images/
   reports/validation.json
   checksums.sha256
 ```
 
-The manifest records schema version, producer package/version and code commit,
-resolved configuration, parent artifact hashes, created files, counts, and
-status. The README explains what the artifact is, how to inspect it, how to run
-its independent validator, and what it does not prove. Payload formats remain
-stage-specific but are declared, versioned, and accessible through a public
-reader API.
+`packet.json` records schema, producer revision, resolved logical configuration,
+source metadata checksums, storage profile, counts, and exact file inventory.
+`selection.json` freezes the deterministic selection. `records.jsonl` contains
+canonical vector labels and provenance. The validator checks the schema, exact
+file/checksum inventory, image decode and dimensions, no-upscale envelope,
+geometry bounds, record counts, and absence of raw archives or raster target
+caches.
 
-An artifact becomes consumable only after its validator passes and it is
-atomically promoted from a temporary output directory. Consumers check schema,
-hashes, and parent identities before use. Outputs are immutable; reruns create a
-new artifact ID rather than changing reviewed bytes.
+A packet is built in a non-consumable temporary output directory. Only after it
+validates and the source staging directory is proved deleted is it atomically
+renamed to its immutable packet ID. Exact reruns validate or refuse the existing
+destination; changed source, selection, storage, or limits create a new ID.
 
-## Stage outputs
+## Later responsibilities
 
-| Producer | Durable packet | Explicitly absent |
-|---|---|---|
-| source adapter + packet builder | compact per-source image/vector packet | raw archive, extraction tree, heatmaps |
-| corpus indexer | packet list, split/group/duplicate index | copied pixels |
-| target package | numeric/rendered conformance packet | full dataset-sized raster cache |
-| augmentation package | replay manifest, property report, bounded previews | augmented dataset copy |
-| training package | config, logs, metrics, checkpoints, parent hashes | hidden defaults or copied corpus |
-| export package | ONNX, parity tensors/report, operator inventory | quantization claims |
-| quantization package | `.espdl` family, metadata, calibration manifest, parity report | raw calibration images or final-test access |
-| hardware runner/parser | benchmark JSON/CSV, config/build hashes, resource model | unstructured-only serial evidence |
-| evaluation package | immutable metric report and operating threshold record | model mutation or threshold tuning on final test |
+Targets, augmentation, training, export, quantization, evaluation, and hardware
+results will each receive a similarly direct named module or top-level library
+only when their stage begins. They should not be scaffolded early. Training will
+read pixels and vector records only through `data_pipeline.packets.read` and
+will generate targets in memory.
 
-## Data loading boundary
-
-Training reads compact source packets through the `tracker_packets` public
-reader. Targets and augmentation are generated in memory. If profiling proves a
-cache is required, the cache is content-addressed by packet, configuration, and
-producer version; it has a hard size limit, is safe to delete, and is never the
-only copy of a durable artifact.
-
-The data downloader imports contracts, adapter interfaces, and packet-building
-APIs. It cannot import training, models, targets, or augmentation. This keeps the
-destructive raw-staging cleanup small enough to audit independently.
-
-## Firmware and terminal scripts
-
-The same ownership rule applies outside Python:
+Firmware retains responsibility-based components:
 
 ```text
 firmware/
-  characterize/                  # disposable benchmark application
-  tracker/                       # final application and compile-time profiles
+  characterize/
+  tracker/
   components/
-    tracker_camera/              # OV5647/CSI/ISP ownership
-    tracker_preprocess/          # PPA/Bayer/INT8 mapping
-    tracker_model/               # ESP-DL loading and invocation
-    tracker_decode/              # tensor-to-centroid reference/optimized paths
-    tracker_telemetry/           # timing, memory, traffic, drop/corruption data
+    camera/
+    preprocess/
+    model/
+    decode/
+    telemetry/
 tools/
-  idf/                           # setup, doctor, build/flash/monitor runners
-  data/                          # one-source acquisition and packet validation
-  experiments/                   # training/export/quant/board matrix runners
+  idf/
+  data/
+  experiments/
 ```
-
-Each firmware component owns a public header, source directory, CMake metadata,
-README, and unit/differential tests. Applications compose components; components
-do not import application internals. Shell scripts are short environment/CLI
-entrypoints. Non-trivial parsing, selection, validation, or state transitions
-live in the corresponding tested Python package rather than accumulating in a
-large shell script.
 
 ## Review gate
 
-- Each package can be installed and tested alone from its directory.
-- A dependency-graph check rejects undeclared imports and cycles.
-- Every CLI calls the public library API and has `--help`, `--check`, and a dry
-  run where it performs downloads, deletion, flashing, or other side effects.
-- Every artifact validates without importing its producer's private modules.
-- No stage creates a permanent duplicate of pixels or model-sized targets.
-- Cross-stage integration tests use only public APIs and artifact packets.
+- A new reader can identify every Python responsibility from `Python/README.md`
+  and the immediate `data_pipeline/` filenames.
+- `uv sync --project Python` creates the only Python environment.
+- `make data-check` runs formatting, lint, tests, library check, and a no-side-
+  effect dry run.
+- Every CLI uses the same public API as tests.
+- The independent packet validator does not depend on acquisition internals.
+- No packet contains raw archives, extraction trees, heatmaps, augmented copies,
+  or model-sized target caches.

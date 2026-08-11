@@ -21,7 +21,7 @@ Never promote evidence across these levels without the corresponding test.
 | development setup | pinned EIM/ESP-IDF/tool versions; terminal and VS Code Doctor/build/flash/monitor/debug equivalence |
 | acquisition | deterministic selection/caps, URL/version/streamed checksum, safe extraction, one-source staging, 2× no-crop/no-upscale conversion, atomic packet promotion, verified raw cleanup |
 | packets | independent schema/hash/count validator, readable manifest/README, immutable version, parent/source identities, no raw archives or permanent raster-target cache |
-| code packages | independent install/check/test, public API/CLI parity, declared one-way imports, no cycles, no hidden filesystem/network side effects |
+| Python code | one locked project, named module ownership, public API/CLI parity, declared one-way imports, no cycles, no hidden filesystem/network side effects |
 | annotations | native-count reconciliation, coordinate convention, orientation, clipping, zero area, duplicate IDs, ignore flags |
 | splits | immutable publisher split, exact hash, perceptual hash, embedding-neighbour review; internal video/movie/camera/location grouping |
 | negatives | exact MID/class coverage and thresholds, human audit, hard-negative review, no inference from missing labels; NightOwls background is not `no_human` |

@@ -8,6 +8,23 @@ outdoor scenes, ordinary rooms, crowds, occlusion, darkness, distance, flat
 optics, and native fisheye optics. Wider coverage is useful only when annotation
 meaning and split independence remain explicit.
 
+## Implementation boundary
+
+The acquisition machinery now lives in `Python/data_pipeline`. It implements
+strict resolved configuration, bounded transfer, exact source staging ownership,
+orientation-aware no-crop/no-upscale canonicalization, native and transformed
+vector records, immutable packet build/promotion, independent validation and
+reading, structured reports, and cleanup on both success and failure.
+
+The automated Open Images adapter parses exact MIDs, native box flags, and
+human-verified absence without collapsing head, face, and person semantics. The
+manifest adapter admits already mapped fixtures or manually accessed sources
+through the same validated pipeline. This is implementation evidence for the
+pipeline, not completion of the corpus: source-specific native parsers and
+packets for the rest of the ordered portfolio remain Stage 1 work and the stage
+gate stays open until each source has a packet or a recorded bounded-access
+result.
+
 ## Research authorization and corpus policy
 
 The user has authorized every listed source for this personal, non-commercial

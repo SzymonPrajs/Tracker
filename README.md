@@ -1,7 +1,8 @@
 # Tracker rebuild plan
 
 This is the single controlling plan for building Tracker. The active repository
-contains planning documents only.
+contains the planning documents and the Stage 1 data-pipeline implementation;
+later stages have not been scaffolded early.
 
 The intended result is the highest-performing ESP32-P4 system that fits the
 sustained hardware envelope, receives frames from
@@ -37,9 +38,9 @@ or production-ready until it passes the physical-board gates in Stage 11.
 13. Process one dataset at a time. Raw downloads and extraction trees are
     temporary staging only; promote a verified compact packet, delete that
     source's staging, prove it is gone, and only then start the next source.
-14. Each responsibility is a small importable package or standalone script with
-    its own contract, README, fixtures, tests, and CLI. Dependencies flow in one
-    direction; no stage reaches into another stage's private files.
+14. Each responsibility is a clearly named importable module or standalone
+    script with a public contract, tests, and CLI where useful. Dependencies
+    flow in one direction; no stage reaches into another stage's private files.
 
 ## Fixed boundary and open decisions
 
@@ -125,6 +126,16 @@ than stretching insufficient images.
 
 ## Stage 1 — acquire the dataset
 
+The implemented library is under [`Python/data_pipeline`](Python/README.md).
+It currently provides strict configuration, the manifest and Open Images
+adapters, bounded one-source staging, no-crop/no-upscale packet construction,
+independent validation/reading, structured run reports, and verified raw cleanup.
+Run `make data-check` before acquisition and `make data-plan` to inspect the
+four-image real-source smoke profile without network or filesystem side effects.
+This implements the acquisition machinery; the Stage 1 corpus gate remains open
+until every portfolio source has a packet or a recorded access/partial-retrieval
+result.
+
 The project is authorized for personal, non-commercial research use of every
 listed source, but it does not need every byte of an enormous source. Download
 annotations/metadata first, choose a deterministic source-balanced and
@@ -205,7 +216,7 @@ CPU/accelerator agreement within tolerance.
 
 See [Training](docs/training.md).
 
-Implementation follows the one-way package structure in
+Implementation follows the one-way module structure in
 [Code organization](docs/code-organization.md). Acquisition, source adapters,
 packet building, targets, augmentation, training, export, quantization, and
 evaluation can each be read, invoked, and tested independently.
@@ -362,7 +373,7 @@ physical acceptance/soak protocol without retuning.
 ## Document map
 
 - [Data](docs/data.md): bounded research portfolio, one-source staging, compact packets, semantics, negatives, and acquisition gates.
-- [Code organization](docs/code-organization.md): independent packages, dependency direction, CLIs, and artifact contracts.
+- [Code organization](docs/code-organization.md): readable modules, dependency direction, CLIs, and artifact contracts.
 - [Targets and augmentation](docs/targets-and-augmentation.md): heatmaps, masks, radial warp, noise, and property tests.
 - [Hardware characterization](docs/hardware-characterization.md): terminal/VS Code setup, benchmarks, RAW10 investigation, and resource envelope.
 - [Training](docs/training.md): configuration, Bayer/luminance/RGB experiments, loop, and optimization runs.
