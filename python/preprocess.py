@@ -45,17 +45,16 @@ def _tile(example: dict, width: int, height: int) -> Image.Image:
     colors = {
         "head": "#00ff66",
         "face": "#00d9ff",
-        "person": "#ffcc00",
-        "person_visible": "#ff7800",
-        "person_full": "#ff38c7",
     }
     for label in example["labels"]:
         if label.get("ignore", False):
             continue
         x, y, box_width, box_height = label["box"]
-        draw.rectangle(
-            (x, y, x + box_width, y + box_height), outline=colors[label["kind"]]
-        )
+        if label["kind"] in colors:
+            draw.rectangle(
+                (x, y, x + box_width, y + box_height),
+                outline=colors[label["kind"]],
+            )
 
     heat = example["heatmaps"].amax(dim=0, keepdim=True).unsqueeze(0)
     heat = F.interpolate(heat, (height, width), mode="bilinear", align_corners=False)[
@@ -107,7 +106,7 @@ def main() -> None:
     first = examples[0]
     print(f"Wrote {args.output}")
     print(f"image: {tuple(first['image'].shape)}")
-    for name in ("heatmaps", "valid_mask", "sizes", "offsets", "regression_mask"):
+    for name in ("heatmaps", "valid_mask", "offsets", "regression_mask", "targets"):
         print(f"{name}: {tuple(first[name].shape)}")
     print("channels: " + ", ".join(SEMANTICS))
 

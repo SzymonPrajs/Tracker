@@ -6,31 +6,46 @@ Run training from the repository root:
 python3 python/train.py
 ```
 
-`config/train.toml` controls model width and depth, optimizer values, batch
-size, validation fraction, device, and output folder. Input size, RGB versus
-luminance, and augmentation remain in `config/preprocess.toml`, so the same
-preprocessing code is used by the preview and the trainer.
+`config/train.toml` controls model widths and depths, source mixture, optimizer,
+batch size, device, and output folder. Input size, RGB versus luminance,
+minimum target size, and augmentation remain in `config/preprocess.toml`, so
+the preview and trainer use identical preprocessing.
 
-The current model uses ordinary and depthwise convolutions, batch normalization,
-and ReLU6. It keeps a stride-four feature map and emits 25 channels: five
-heatmaps, ten box-size values, and ten center-offset values. Width and depth can
-be changed without editing Python. The baseline's twelve stride-one body blocks
-give each output cell an approximately 103 by 103 pixel receptive field, which
-covers the full height of the initial 200 by 100 input without an unsupported
-resize or uncertain dilated-convolution path.
+The focused model uses ordinary and depthwise convolutions, batch normalization,
+ReLU, nearest-neighbor resize, and addition. It keeps two residual blocks at
+stride 4, moves six blocks to the cheaper stride-8 map, then merges the result
+back into stride 4. Its three outputs are one center logit and two sub-cell
+offsets. The default has 38,403 trainable parameters and the following computed
+convolution cost:
 
-The split is deterministic and keeps examples from every source in both train
-and validation. Training can sample the four sources evenly even though their
-download sizes differ. Validation uses clean images; training creates fresh
-configured augmentation each epoch. Unknown annotation kinds and ignored
-regions do not contribute false-negative heatmap loss.
+| Input | Model compute |
+|---|---:|
+| 200 by 100 | 16.915 MMAC |
+| 320 by 160 | 42.266 MMAC |
+| 400 by 200 | 66.040 MMAC |
+
+This is substantially cheaper than keeping all twelve old blocks at stride 4.
+The 400 by 200 choice is an experiment, not a claim that it fits the complete
+camera pipeline: export and board profiling still have to measure allocator
+workspace, camera buffers, conversion, PSRAM traffic, and latency together.
+
+Official WIDER validation, CrowdHuman validation, and SCUT test records are
+used when present. A stable content-group split is used only for a source whose
+held-out data has not yet been appended. Exact duplicate content is kept on one
+side, with held-out membership taking priority. Training samples approximately
+50% WIDER, 25% CrowdHuman, 20% SCUT-HEAD, and 5% verified Open Images
+negatives. Validation is clean; training creates fresh configured augmentation
+each epoch.
 
 Each epoch writes readable JSON metrics plus `last.pt` and the best validation
-checkpoint. A checkpoint contains the model, optimizer, learning-rate schedule,
-preprocessing values, and current epoch. Resume explicitly with:
+checkpoint. Predictions are decoded with their offsets and matched one-to-one
+to transformed raw centers. Metrics include center AP within 4 and 8 input
+pixels, precision/recall at the configured operating threshold, source/size
+recall, and false positives per verified-negative image. `best.pt` is selected
+by center AP at 8 pixels, not validation loss. Resume explicitly with:
 
 ```bash
-python3 python/train.py --resume runs/baseline/last.pt
+python3 python/train.py --resume runs/focused_400x200/last.pt
 ```
 
 Before a full run, exercise the whole real-data path quickly with:
@@ -39,16 +54,16 @@ Before a full run, exercise the whole real-data path quickly with:
 python3 python/train.py --smoke
 ```
 
-Separate runs will compare RGB, luminance, and a RAW-derived one-channel input.
-The model will be trained from scratch. Quantization-aware training can be
-selected in a later experiment config; it will not require a second training
-framework.
+The first run uses a 12-pixel minimum. After it converges, the next controlled
+run lowers the minimum to 8 pixels. Resolution comparisons use the same compact
+source images at 200 by 100, 320 by 160, and 400 by 200. Finalists then compare
+RGB, luminance, and a RAW-derived one-channel input. Quantization-aware training
+comes only after an ordinary INT8 export shows whether it is needed.
 
 The optimization loop is deliberately simple:
 
 1. train a model;
-2. export it and measure its activations, memory traffic, and board latency;
+2. export it and measure activations, memory traffic, and board latency;
 3. grow it when useful headroom remains;
 4. shrink or restructure it when it does not fit;
-5. repeat until the best-performing useful model fills the real hardware
-   envelope.
+5. repeat until the best useful model fills the measured hardware envelope.

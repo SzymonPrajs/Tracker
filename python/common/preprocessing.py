@@ -14,18 +14,15 @@ from PIL import Image
 from common.images import clip_labels
 
 
-SEMANTICS = ("head", "face", "person", "person_visible", "person_full")
-CHANNEL = {name: index for index, name in enumerate(SEMANTICS)}
-SOURCE_COVERAGE = {
-    "coco": ("person",),
-    "crowdhuman": ("head", "person_visible", "person_full"),
-    "scut_head": ("head",),
-    "wider_face": ("face",),
-}
+SEMANTICS = ("head_center",)
+TARGET_KINDS = {"head", "face"}
+USED_SOURCES = {"crowdhuman", "open_images", "scut_head", "wider_face"}
 
 
 def iter_records(data_dir: Path) -> Iterator[dict[str, Any]]:
     for labels_file in sorted(data_dir.glob("*/labels.jsonl")):
+        if labels_file.parent.name not in USED_SOURCES:
+            continue
         with labels_file.open(encoding="utf-8") as file:
             for line in file:
                 record = json.loads(line)
@@ -35,7 +32,11 @@ def iter_records(data_dir: Path) -> Iterator[dict[str, Any]]:
 
 def balanced_sample(data_dir: Path, count: int, seed: int) -> list[dict[str, Any]]:
     """Reservoir-sample each source so a preview is not dominated by one set."""
-    files = sorted(data_dir.glob("*/labels.jsonl"))
+    files = [
+        path
+        for path in sorted(data_dir.glob("*/labels.jsonl"))
+        if path.parent.name in USED_SOURCES
+    ]
     if not files:
         raise FileNotFoundError(f"No labels.jsonl files found under {data_dir}")
 
@@ -232,61 +233,59 @@ def _draw_gaussian(
 
 
 def build_targets(
-    record: dict[str, Any],
     labels: list[dict[str, Any]],
     input_width: int,
     input_height: int,
     stride: int,
+    minimum_target_pixels: float,
 ) -> dict[str, torch.Tensor]:
     output_width = input_width // stride
     output_height = input_height // stride
-    channels = len(SEMANTICS)
-    heatmaps = torch.zeros(channels, output_height, output_width)
-    valid_mask = torch.zeros_like(heatmaps)
-    sizes = torch.zeros(channels, 2, output_height, output_width)
-    offsets = torch.zeros_like(sizes)
+    heatmaps = torch.zeros(1, output_height, output_width)
+    valid_mask = torch.ones_like(heatmaps)
+    offsets = torch.zeros(1, 2, output_height, output_width)
     regression_mask = torch.zeros_like(heatmaps)
-
-    for kind in SOURCE_COVERAGE[record["source"]]:
-        valid_mask[CHANNEL[kind]].fill_(1)
+    chosen_distance = torch.full((output_height, output_width), math.inf)
+    centers = []
 
     for label in labels:
-        kind = label["kind"]
-        if kind not in CHANNEL:
+        if label["kind"] not in TARGET_KINDS:
             continue
-        channel = CHANNEL[kind]
         x, y, width, height = label["box"]
-        if label.get("ignore", False):
+        short_side = min(width, height)
+        if label.get("ignore", False) or short_side < minimum_target_pixels:
             left = max(0, math.floor(x / stride))
             right = min(output_width, math.ceil((x + width) / stride))
             top = max(0, math.floor(y / stride))
             bottom = min(output_height, math.ceil((y + height) / stride))
-            valid_mask[channel, top:bottom, left:right] = 0
+            valid_mask[0, top:bottom, left:right] = 0
             continue
 
         center_x = (x + width / 2) / stride
         center_y = (y + height / 2) / stride
         cell_x = min(output_width - 1, max(0, math.floor(center_x)))
         cell_y = min(output_height - 1, max(0, math.floor(center_y)))
-        sigma = max(0.75, min(width, height) / stride / 6)
-        _draw_gaussian(heatmaps[channel], center_x, center_y, sigma)
-        heatmaps[channel, cell_y, cell_x] = 1
-        sizes[channel, :, cell_y, cell_x] = torch.tensor(
-            (width / stride, height / stride)
-        )
-        offsets[channel, :, cell_y, cell_x] = torch.tensor(
-            (center_x - cell_x, center_y - cell_y)
-        )
-        regression_mask[channel, cell_y, cell_x] = 1
+        sigma = max(0.75, short_side / stride / 6)
+        _draw_gaussian(heatmaps[0], center_x, center_y, sigma)
+        heatmaps[0, cell_y, cell_x] = 1
+        distance = (center_x - cell_x - 0.5) ** 2 + (center_y - cell_y - 0.5) ** 2
+        if distance < chosen_distance[cell_y, cell_x]:
+            offsets[0, :, cell_y, cell_x] = torch.tensor(
+                (center_x - cell_x, center_y - cell_y)
+            )
+            regression_mask[0, cell_y, cell_x] = 1
+            chosen_distance[cell_y, cell_x] = distance
+        valid_mask[0, cell_y, cell_x] = 1
+        centers.append((center_x * stride, center_y * stride, short_side))
 
     regression_mask *= valid_mask
 
     return {
         "heatmaps": heatmaps,
         "valid_mask": valid_mask,
-        "sizes": sizes,
         "offsets": offsets,
         "regression_mask": regression_mask,
+        "targets": torch.tensor(centers, dtype=torch.float32).reshape(-1, 3),
     }
 
 
@@ -320,11 +319,11 @@ def prepare_example(
         raise ValueError('color must be "rgb" or "luminance"')
 
     targets = build_targets(
-        record,
         labels,
         config["input_width"],
         config["input_height"],
         config["output_stride"],
+        config["minimum_target_pixels"],
     )
     return {
         "image": image.contiguous(),

@@ -1,8 +1,10 @@
-# The compact downloads are at most 400 x 200. Training starts at half that.
-input_width = 200
-input_height = 100
+# The first clean run uses every retained pixel in the compact cache.
+input_width = 400
+input_height = 200
 output_stride = 4
 color = "rgb"                 # "rgb" or "luminance"
+minimum_target_pixels = 12     # smaller annotated heads are masked, not negative
+maximum_train_targets = 20     # skip very dense crowd frames during training
 
 # One run of preprocess.py draws this many examples for visual inspection.
 preview_count = 16

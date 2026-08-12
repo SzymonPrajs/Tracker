@@ -52,9 +52,10 @@ python3 python/preprocess.py
 ```
 
 This writes one local contact sheet to `previews/preprocess.png`. The left side
-of each tile shows transformed boxes and the right side shows the heatmap. It
-does not duplicate the dataset. Edit [`config/preprocess.toml`](config/preprocess.toml)
-to change input size, RGB/luminance mode, or augmentation strengths.
+of each tile shows transformed boxes and the right side shows the single
+head-center heatmap. It does not duplicate the dataset. Edit
+[`config/preprocess.toml`](config/preprocess.toml) to change input size,
+RGB/luminance mode, minimum target size, or augmentation strengths.
 
 ## Train
 
@@ -62,10 +63,11 @@ to change input size, RGB/luminance mode, or augmentation strengths.
 python3 python/train.py
 ```
 
-The model trains directly from the compact data and generates augmentation as
-it loads each batch. Edit [`config/train.toml`](config/train.toml) to change the
-model or optimizer. Checkpoints and metrics are written under `runs/` and stay
-local. Run `python3 python/train.py --smoke` for a short real-data check.
+The two-scale model trains directly from compact data and generates
+augmentation as it loads each batch. Edit [`config/train.toml`](config/train.toml)
+to change the model, source mixture, or optimizer. Checkpoints and decoded
+center-AP metrics are written under `runs/` and stay local. Run
+`python3 python/train.py --smoke` for a short real-data check.
 
 ## Phases
 

@@ -52,14 +52,6 @@ def _items(root: Path, annotations: dict[str, dict], split: str) -> list[dict]:
                         "ignore": ignored or head_ignored,
                     }
                 )
-            if "vbox" in person:
-                labels.append(
-                    {"kind": "person_visible", "box": person["vbox"], "ignore": ignored}
-                )
-            if "fbox" in person:
-                labels.append(
-                    {"kind": "person_full", "box": person["fbox"], "ignore": ignored}
-                )
         items.append(
             {
                 "source": "crowdhuman",
@@ -91,6 +83,10 @@ def run(
             raise FileNotFoundError("download the training split before --held-out")
         records = [json.loads(line) for line in labels_path.read_text().splitlines()]
         records = [record for record in records if record.get("split") != "validation"]
+        for record in records:
+            record["labels"] = [
+                label for label in record["labels"] if label["kind"] == "head"
+            ]
     start_output(output)
     with TemporaryDirectory(prefix="tracker_crowdhuman_") as temporary:
         raw = Path(temporary)

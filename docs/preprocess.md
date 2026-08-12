@@ -8,9 +8,8 @@ python3 python/preprocess.py
 
 It reads the plain `images/` and `labels.jsonl` downloads and writes a small
 visual check to `previews/preprocess.png`. It does not make an augmented copy
-of the dataset. The future training script will import the same
-`common/preprocessing.py` functions and create different augmentations while it
-loads each batch.
+of the dataset. Training imports the same `common/preprocessing.py` functions
+and creates different augmentations while it loads each batch.
 
 The augmentation mixture includes clean images, darkness, sensor-like noise,
 blur, and several strengths of full-canvas fisheye-like warping. The warp is a
@@ -21,21 +20,28 @@ through the same map before targets are made.
 Each example contains:
 
 - an RGB or luminance tensor at the configured input size;
-- separate heatmaps for head, face, COCO person, visible person, and full
-  person;
-- center offsets and box sizes at the configured output stride;
-- validity masks so labels absent from a particular dataset are unknown rather
-  than false negatives;
+- one `head_center` heatmap shared by WIDER face centers and SCUT/CrowdHuman
+  head centers;
+- a sub-cell center offset at the configured output stride;
+- transformed raw centers for the decoded evaluator;
 - masked-out regions for annotations marked difficult or ignored.
 
-All changing values are in `config/preprocess.toml`. The default input is 200
-by 100 with targets at stride 4. Use `--clean` to inspect resizing and target
-generation with random augmentation disabled:
+There is deliberately no box-size regression: a WIDER face box and a full-head
+box have different extents even when their centers describe the same tracking
+target. There are also no body channels.
+
+All changing values are in `config/preprocess.toml`. The first clean run uses
+400 by 200 with targets at stride 4. An annotated head shorter than 12 input
+pixels becomes an ignored region, not background. Training frames with more
+than 20 usable targets are skipped so dense crowds do not dominate this small
+room/outdoor tracker. Use `--clean` to inspect resizing and target generation
+with random augmentation disabled:
 
 ```bash
 python3 python/preprocess.py --clean
 ```
 
-The stored 400 by 200 maximum is intentionally larger than the likely initial
-model input. If experiments require a larger input, change the download config
-and regenerate the compact data rather than stretching small images.
+The existing compact cache can compare 200 by 100, 320 by 160, and 400 by 200
+without another download. It cannot support a meaningful experiment above 400
+by 200; that would require regenerating compact images from the originals
+rather than stretching WebP files.
