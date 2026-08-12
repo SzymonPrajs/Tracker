@@ -388,8 +388,9 @@ class CenterMetrics:
             total_tp += tp
             total_fp += fp
             total_targets += len(targets)
-            source_hits[source] += tp
-            source_targets[source] += len(targets)
+            if len(targets):
+                source_hits[source] += tp
+                source_targets[source] += len(targets)
             if source == "open_images":
                 count = sum(score >= threshold for score, _, _ in predictions)
                 negative_frames += 1
