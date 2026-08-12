@@ -5,6 +5,7 @@ Run scripts from the repository root:
 ```bash
 python3 python/download.py
 python3 python/preprocess.py
+python3 python/train.py
 ```
 
 Top-level scripts are project phases. `datasets/` contains external dataset

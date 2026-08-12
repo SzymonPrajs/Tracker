@@ -270,6 +270,7 @@ def build_targets(
         cell_y = min(output_height - 1, max(0, math.floor(center_y)))
         sigma = max(0.75, min(width, height) / stride / 6)
         _draw_gaussian(heatmaps[channel], center_x, center_y, sigma)
+        heatmaps[channel, cell_y, cell_x] = 1
         sizes[channel, :, cell_y, cell_x] = torch.tensor(
             (width / stride, height / stride)
         )
@@ -277,6 +278,8 @@ def build_targets(
             (center_x - cell_x, center_y - cell_y)
         )
         regression_mask[channel, cell_y, cell_x] = 1
+
+    regression_mask *= valid_mask
 
     return {
         "heatmaps": heatmaps,

@@ -1,0 +1,28 @@
+# The preprocessing config controls input size, color, and augmentation.
+preprocess_config = "config/preprocess.toml"
+output_dir = "runs/baseline"
+
+seed = 1234
+epochs = 30
+batch_size = 64
+num_workers = 4
+validation_fraction = 0.05
+balance_sources = true
+device = "auto"               # auto, cpu, mps, or cuda
+mixed_precision = true         # used on CUDA; full precision on MPS/CPU
+
+[model]
+width = 24
+depth = 12
+
+[optimizer]
+learning_rate = 0.001
+minimum_learning_rate = 0.00001
+weight_decay = 0.0001
+gradient_clip = 5.0
+
+[loss]
+heatmap_weight = 1.0
+size_weight = 0.1
+offset_weight = 1.0
+center_threshold = 0.5
