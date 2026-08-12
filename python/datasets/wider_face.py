@@ -28,9 +28,10 @@ def _annotations(path: Path, image_root: Path) -> list[dict]:
                 {
                     "kind": "face",
                     "box": [x, y, width, height],
-                    "ignore": bool(values[9]),
+                    "ignore": bool(values[7]),
                     "blur": values[4],
-                    "occlusion": values[7],
+                    "occlusion": values[8],
+                    "pose": values[9],
                 }
             )
         items.append(
