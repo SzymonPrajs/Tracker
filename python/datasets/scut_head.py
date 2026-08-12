@@ -20,20 +20,27 @@ def _read_part(root: Path, part: str) -> list[dict]:
     for path in root.rglob("*"):
         if path.suffix.lower() in {".jpg", ".jpeg", ".png"}:
             images.setdefault(path.stem, []).append(path)
+    train_ids = set(
+        next(root.rglob("ImageSets/Main/trainval.txt"))
+        .read_text(encoding="utf-8")
+        .split()
+    )
+    validation_ids = set(
+        next(root.rglob("ImageSets/Main/test.txt"))
+        .read_text(encoding="utf-8")
+        .split()
+    )
     items = []
     for annotation in sorted(root.rglob("*.xml")):
-        lower_path = str(annotation).lower()
-        split = "validation" if "test" in lower_path else "train"
+        if annotation.stem in train_ids:
+            split = "train"
+        elif annotation.stem in validation_ids:
+            split = "validation"
+        else:
+            continue
         tree = ET.parse(annotation).getroot()
         candidates = images.get(annotation.stem, [])
-        image = next(
-            (
-                candidate
-                for candidate in candidates
-                if ("test" in str(candidate).lower()) == (split == "validation")
-            ),
-            None,
-        )
+        image = candidates[0] if len(candidates) == 1 else None
         if image is None:
             continue
         boxes = []
