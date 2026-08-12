@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import re
 import time
@@ -71,7 +72,9 @@ def _compact(
         image.thumbnail((width, height), Image.Resampling.LANCZOS)
         new_width, new_height = image.size
         filename = f"{safe_name(str(item['id']))}.webp"
-        image.save(output / "images" / filename, "WEBP", quality=80, method=4)
+        image_path = output / "images" / filename
+        image.save(image_path, "WEBP", quality=80, method=4)
+        content_hash = hashlib.sha256(image_path.read_bytes()).hexdigest()
 
     x_scale = new_width / old_width
     y_scale = new_height / old_height
@@ -93,6 +96,8 @@ def _compact(
         "source": item["source"],
         "source_id": str(item["id"]),
         "split": item.get("split", "train"),
+        "group": item.get("group"),
+        "content_hash": content_hash,
         "width": new_width,
         "height": new_height,
         "labels": labels,

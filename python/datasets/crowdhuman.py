@@ -10,12 +10,18 @@ from common.images import compact_images, write_labels
 
 
 BASE = "https://huggingface.co/datasets/yongAgain/CrowdHuman/resolve/main/"
-ANNOTATIONS = BASE + "annotation_train.odgt"
-PARTS = [
-    BASE + "CrowdHuman_train01.zip",
-    BASE + "CrowdHuman_train02.zip",
-    BASE + "CrowdHuman_train03.zip",
-]
+ANNOTATIONS = {
+    "train": BASE + "annotation_train.odgt",
+    "validation": BASE + "annotation_val.odgt",
+}
+PARTS = {
+    "train": [
+        BASE + "CrowdHuman_train01.zip",
+        BASE + "CrowdHuman_train02.zip",
+        BASE + "CrowdHuman_train03.zip",
+    ],
+    "validation": [BASE + "CrowdHuman_val.zip"],
+}
 
 
 def _read_annotations(path: Path) -> dict[str, dict]:
@@ -27,7 +33,7 @@ def _read_annotations(path: Path) -> dict[str, dict]:
     return records
 
 
-def _items(root: Path, annotations: dict[str, dict]) -> list[dict]:
+def _items(root: Path, annotations: dict[str, dict], split: str) -> list[dict]:
     items = []
     for image in sorted(root.rglob("*.jpg")):
         source_id = image.stem
@@ -58,7 +64,7 @@ def _items(root: Path, annotations: dict[str, dict]) -> list[dict]:
             {
                 "source": "crowdhuman",
                 "id": source_id,
-                "split": "train",
+                "split": split,
                 "path": image,
                 "labels": labels,
             }
@@ -66,39 +72,59 @@ def _items(root: Path, annotations: dict[str, dict]) -> list[dict]:
     return items
 
 
-def run(output: Path, config: dict, limit: int | None = None) -> int:
-    target = min(
-        limit or config["datasets"]["crowdhuman"], config["datasets"]["crowdhuman"]
-    )
-    start_output(output)
+def run(
+    output: Path,
+    config: dict,
+    limit: int | None = None,
+    held_out: bool = False,
+) -> int:
+    targets = {
+        "train": config["datasets"]["crowdhuman_train"],
+        "validation": config["datasets"]["crowdhuman_validation"],
+    }
+    if limit is not None:
+        targets = {"train": max(1, limit * 4 // 5), "validation": max(1, limit // 5)}
     records = []
+    if held_out:
+        labels_path = output / "labels.jsonl"
+        if not labels_path.exists():
+            raise FileNotFoundError("download the training split before --held-out")
+        records = [json.loads(line) for line in labels_path.read_text().splitlines()]
+        records = [record for record in records if record.get("split") != "validation"]
+    start_output(output)
     with TemporaryDirectory(prefix="tracker_crowdhuman_") as temporary:
         raw = Path(temporary)
-        annotation_path = download(
-            ANNOTATIONS, raw / "annotation_train.odgt", "CrowdHuman annotations"
-        )
-        annotations = _read_annotations(annotation_path)
-        for number, url in enumerate(PARTS, 1):
-            if len(records) >= target:
-                break
-            archive = download(
-                url, raw / f"train_{number}.zip", f"CrowdHuman part {number}/3"
+        for split in ("train", "validation"):
+            if held_out and split != "validation":
+                continue
+            annotation_path = download(
+                ANNOTATIONS[split],
+                raw / f"annotation_{split}.odgt",
+                f"CrowdHuman: {split} annotations",
             )
-            extracted = unzip(
-                archive, raw / f"part_{number}", f"CrowdHuman part {number}/3"
-            )
-            items = _items(extracted, annotations)[: target - len(records)]
-            records.extend(
-                compact_images(
-                    items,
-                    output,
-                    config["image_width"],
-                    config["image_height"],
-                    config["workers"],
-                    f"CrowdHuman part {number}/3",
+            annotations = _read_annotations(annotation_path)
+            split_records = []
+            for number, url in enumerate(PARTS[split], 1):
+                if len(split_records) >= targets[split]:
+                    break
+                label = f"CrowdHuman: {split} part {number}/{len(PARTS[split])}"
+                archive = download(url, raw / f"{split}_{number}.zip", label)
+                extracted = unzip(archive, raw / f"{split}_{number}", label)
+                items = _items(extracted, annotations, split)[
+                    : targets[split] - len(split_records)
+                ]
+                split_records.extend(
+                    compact_images(
+                        items,
+                        output,
+                        config["image_width"],
+                        config["image_height"],
+                        config["workers"],
+                        label,
+                    )
                 )
-            )
-            archive.unlink()
-            shutil.rmtree(extracted)
+                archive.unlink()
+                shutil.rmtree(extracted)
+            records.extend(split_records)
         write_labels(output, records)
     return len(records)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -15,18 +16,24 @@ PARTS = {
 
 
 def _read_part(root: Path, part: str) -> list[dict]:
-    images = {
-        path.stem: path
-        for path in root.rglob("*")
-        if path.suffix.lower() in {".jpg", ".jpeg", ".png"}
-    }
+    images: dict[str, list[Path]] = {}
+    for path in root.rglob("*"):
+        if path.suffix.lower() in {".jpg", ".jpeg", ".png"}:
+            images.setdefault(path.stem, []).append(path)
     items = []
     for annotation in sorted(root.rglob("*.xml")):
         lower_path = str(annotation).lower()
-        if "test" in lower_path:
-            continue
+        split = "validation" if "test" in lower_path else "train"
         tree = ET.parse(annotation).getroot()
-        image = images.get(annotation.stem)
+        candidates = images.get(annotation.stem, [])
+        image = next(
+            (
+                candidate
+                for candidate in candidates
+                if ("test" in str(candidate).lower()) == (split == "validation")
+            ),
+            None,
+        )
         if image is None:
             continue
         boxes = []
@@ -45,7 +52,7 @@ def _read_part(root: Path, part: str) -> list[dict]:
             {
                 "source": "scut_head",
                 "id": f"part_{part}_{annotation.stem}",
-                "split": "train",
+                "split": split,
                 "path": image,
                 "labels": boxes,
             }
@@ -53,22 +60,30 @@ def _read_part(root: Path, part: str) -> list[dict]:
     return items
 
 
-def run(output: Path, config: dict, limit: int | None = None) -> int:
-    target = min(
-        limit or config["datasets"]["scut_head"], config["datasets"]["scut_head"]
-    )
-    start_output(output)
+def run(
+    output: Path,
+    config: dict,
+    limit: int | None = None,
+    held_out: bool = False,
+) -> int:
     records = []
+    if held_out:
+        labels_path = output / "labels.jsonl"
+        if not labels_path.exists():
+            raise FileNotFoundError("download the training split before --held-out")
+        records = [json.loads(line) for line in labels_path.read_text().splitlines()]
+        records = [record for record in records if record.get("split") != "validation"]
+    start_output(output)
     with TemporaryDirectory(prefix="tracker_scut_head_") as temporary:
         raw = Path(temporary)
         for part, file_id in PARTS.items():
-            if len(records) >= target:
-                break
             archive = google_drive(
                 file_id, raw / f"part_{part}.zip", f"SCUT-HEAD part {part}"
             )
             extracted = unzip(archive, raw / f"part_{part}", f"SCUT-HEAD part {part}")
-            items = _read_part(extracted, part)[: target - len(records)]
+            items = _read_part(extracted, part)
+            if held_out:
+                items = [item for item in items if item["split"] == "validation"]
             records.extend(
                 compact_images(
                     items,
@@ -80,5 +95,22 @@ def run(output: Path, config: dict, limit: int | None = None) -> int:
                 )
             )
             archive.unlink()
+        if limit is not None:
+            training = [record for record in records if record["split"] == "train"]
+            validation = [
+                record for record in records if record["split"] == "validation"
+            ]
+            records = (
+                training[: max(1, limit * 4 // 5)] + validation[: max(1, limit // 5)]
+            )
+        else:
+            training = [record for record in records if record["split"] == "train"]
+            validation = [
+                record for record in records if record["split"] == "validation"
+            ]
+            records = (
+                training[: config["datasets"]["scut_head_train"]]
+                + validation[: config["datasets"]["scut_head_validation"]]
+            )
         write_labels(output, records)
     return len(records)

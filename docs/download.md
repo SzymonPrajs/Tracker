@@ -1,18 +1,19 @@
 # Download
 
-The default run produces about 51,000 compact training images:
+The focused corpus contains face/head positives and strict face/head negatives:
 
 | Dataset | Images | What it contributes |
 |---|---:|---|
-| [WIDER FACE](https://shuoyang1213.me/WIDERFACE/) train | 12,880 | face boxes, scale, pose, crowds, and varied scenes |
-| [SCUT-HEAD](https://github.com/HCIILAB/SCUT-HEAD-Dataset-Release) train | 3,405 | full-head boxes in classrooms and internet scenes |
-| [CrowdHuman](https://www.crowdhuman.org/) train | 15,000 | head, visible-body, and full-body boxes in crowds |
-| [COCO](https://cocodataset.org/dataset/detection-2017.htm) train | 10,000 | person boxes in ordinary indoor and outdoor scenes |
-| COCO train | 10,000 | images without a COCO person annotation |
+| [WIDER FACE](https://shuoyang1213.me/WIDERFACE/) | 12,880 train + 3,226 validation | faces in varied scenes |
+| [SCUT-HEAD](https://github.com/HCIILAB/SCUT-HEAD-Dataset-Release) | 3,405 train + 1,000 test | heads in classrooms and internet scenes |
+| [CrowdHuman](https://www.crowdhuman.org/) | 15,000 train + 4,370 validation | heads in busy scenes |
+| [Open Images](https://storage.googleapis.com/openimages/web/download_v7.html) | 5,000 train + 1,000 validation | images verified negative for both Human face and Human head |
 
-Face, head, visible-person, and full-person boxes remain different label kinds.
-COCO negatives are marked negative for `person`; they are not falsely claimed
-to be verified head negatives.
+The model uses only face/head centers. Body boxes are neither downloaded for
+supervision nor used by preprocessing. Open Images negatives are accepted only
+when its human image-level labels explicitly set both `/m/0dzct` (Human face)
+and `/m/04hgtk` (Human head) to zero; a missing label is not treated as a
+negative.
 
 ## Run
 
@@ -41,11 +42,16 @@ Useful commands:
 python3 python/download.py --only scut_head
 
 # Make a tiny real-data run in another folder.
-python3 python/download.py --only coco --limit 20 --data-dir /tmp/tracker-data
+python3 python/download.py --only open_images --limit 20 --data-dir /tmp/tracker-data
 
 # Deliberately replace a finished source.
-python3 python/download.py --only coco --force
+python3 python/download.py --only open_images --force
+
+# Keep existing positives and append an official held-out split.
+python3 python/download.py --only wider_face --held-out
 ```
 
 If `labels.jsonl` already exists, that source is left alone. Use `--force` only
-when you intentionally want to replace it.
+when you intentionally want to replace it. `--held-out` upgrades an existing
+WIDER FACE, CrowdHuman, or SCUT-HEAD cache without redownloading its training
+images.

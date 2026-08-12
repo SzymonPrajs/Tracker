@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -7,13 +8,16 @@ from common.files import download, start_output, unzip
 from common.images import compact_images, write_labels
 
 
-IMAGES = "https://huggingface.co/datasets/wider_face/resolve/main/data/WIDER_train.zip"
+IMAGES = {
+    "train": "https://huggingface.co/datasets/wider_face/resolve/main/data/WIDER_train.zip",
+    "validation": "https://huggingface.co/datasets/wider_face/resolve/main/data/WIDER_val.zip",
+}
 ANNOTATIONS = (
     "https://huggingface.co/datasets/wider_face/resolve/main/data/wider_face_split.zip"
 )
 
 
-def _annotations(path: Path, image_root: Path) -> list[dict]:
+def _annotations(path: Path, image_root: Path, split: str) -> list[dict]:
     lines = path.read_text(encoding="utf-8").splitlines()
     items = []
     line = 0
@@ -38,7 +42,7 @@ def _annotations(path: Path, image_root: Path) -> list[dict]:
             {
                 "source": "wider_face",
                 "id": relative.removesuffix(".jpg"),
-                "split": "train",
+                "split": split,
                 "path": image_root / relative,
                 "labels": boxes,
             }
@@ -48,28 +52,57 @@ def _annotations(path: Path, image_root: Path) -> list[dict]:
     return items
 
 
-def run(output: Path, config: dict, limit: int | None = None) -> int:
-    target = min(
-        limit or config["datasets"]["wider_face"], config["datasets"]["wider_face"]
-    )
+def run(
+    output: Path,
+    config: dict,
+    limit: int | None = None,
+    held_out: bool = False,
+) -> int:
+    targets = {
+        "train": config["datasets"]["wider_face_train"],
+        "validation": config["datasets"]["wider_face_validation"],
+    }
+    if limit is not None:
+        targets = {"train": max(1, limit * 4 // 5), "validation": max(1, limit // 5)}
+    existing = []
+    if held_out:
+        labels_path = output / "labels.jsonl"
+        if not labels_path.exists():
+            raise FileNotFoundError("download the training split before --held-out")
+        existing = [json.loads(line) for line in labels_path.read_text().splitlines()]
+        existing = [
+            record for record in existing if record.get("split") != "validation"
+        ]
     start_output(output)
     with TemporaryDirectory(prefix="tracker_wider_face_") as temporary:
         raw = Path(temporary)
         download(ANNOTATIONS, raw / "annotations.zip", "WIDER FACE: annotations")
         unzip(raw / "annotations.zip", raw / "annotations", "WIDER FACE")
-        download(IMAGES, raw / "images.zip", "WIDER FACE: images")
-        unzip(raw / "images.zip", raw / "images", "WIDER FACE")
-        items = _annotations(
-            next((raw / "annotations").rglob("wider_face_train_bbx_gt.txt")),
-            next((raw / "images").rglob("WIDER_train")) / "images",
-        )[:target]
-        records = compact_images(
-            items,
-            output,
-            config["image_width"],
-            config["image_height"],
-            config["workers"],
-            "WIDER FACE",
-        )
+        records = existing
+        for split, url in IMAGES.items():
+            if held_out and split != "validation":
+                continue
+            archive = download(url, raw / f"{split}.zip", f"WIDER FACE: {split}")
+            extracted = unzip(archive, raw / split, f"WIDER FACE: {split}")
+            annotation_name = "wider_face_train_bbx_gt.txt"
+            image_folder = "WIDER_train"
+            if split == "validation":
+                annotation_name = "wider_face_val_bbx_gt.txt"
+                image_folder = "WIDER_val"
+            items = _annotations(
+                next((raw / "annotations").rglob(annotation_name)),
+                next(extracted.rglob(image_folder)) / "images",
+                split,
+            )[: targets[split]]
+            records.extend(
+                compact_images(
+                    items,
+                    output,
+                    config["image_width"],
+                    config["image_height"],
+                    config["workers"],
+                    f"WIDER FACE: {split}",
+                )
+            )
         write_labels(output, records)
     return len(records)

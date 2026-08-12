@@ -5,8 +5,11 @@ workers = 8
 
 # Change these numbers whenever you want a smaller or larger corpus.
 [datasets]
-wider_face = 12880       # faces in varied scenes
-scut_head = 3405         # full-head boxes (training splits)
-crowdhuman = 15000       # heads, visible bodies, and full bodies
-coco_people = 10000      # people in ordinary scenes
-coco_negatives = 10000   # COCO images without a person annotation
+wider_face_train = 12880
+wider_face_validation = 3226
+scut_head_train = 3405
+scut_head_validation = 1000
+crowdhuman_train = 15000
+crowdhuman_validation = 4370
+open_images_train_negatives = 5000
+open_images_validation_negatives = 1000

@@ -38,9 +38,10 @@ python3 python/download.py
 ```
 
 Edit [`config/download.toml`](config/download.toml) to change image size,
-dataset sizes, or worker count. The default is about 51,000 images from four
-datasets. Each source is downloaded, converted to compact WebP files no larger
-than 400 by 200, and its raw archive is removed before the next source begins.
+dataset sizes, or worker count. The bounded corpus contains face/head positives
+from three sources plus strict Open Images face/head negatives and official
+held-out splits. Each source is converted to compact WebP files no larger than
+400 by 200, and its raw archive is removed before the next source begins.
 
 See [`docs/download.md`](docs/download.md) for the exact mixture and commands.
 

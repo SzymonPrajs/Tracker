@@ -27,7 +27,17 @@ def arguments() -> argparse.Namespace:
     parser.add_argument(
         "--force", action="store_true", help="replace an already completed dataset"
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--held-out",
+        action="store_true",
+        help="append only the official validation/test split to existing positives",
+    )
+    args = parser.parse_args()
+    if args.held_out and args.only not in {"wider_face", "crowdhuman", "scut_head"}:
+        parser.error("--held-out requires --only wider_face, crowdhuman, or scut_head")
+    if args.held_out and (args.force or args.limit is not None):
+        parser.error("--held-out cannot be combined with --force or --limit")
+    return args
 
 
 def main() -> int:
@@ -39,7 +49,7 @@ def main() -> int:
     failures = []
     for name in selected:
         output = args.data_dir.resolve() / name
-        if (output / "labels.jsonl").exists() and not args.force:
+        if (output / "labels.jsonl").exists() and not args.force and not args.held_out:
             print(f"\n{name}: already finished ({output})")
             continue
         if args.force and output.exists():
@@ -47,7 +57,7 @@ def main() -> int:
 
         print(f"\n{name}: starting")
         try:
-            count = ALL[name](output, config, args.limit)
+            count = ALL[name](output, config, args.limit, args.held_out)
             print(f"{name}: finished {count:,} images")
         except KeyboardInterrupt:
             print(f"\n{name}: stopped; raw temporary files are being removed")
