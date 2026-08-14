@@ -12,9 +12,9 @@ The best first system for this project is:
 ```text
 OV5647 -> ISP/PPA -> small luminance frame
                          |
-             current luminance + signed frame difference
+          luminance + positive/negative motion surfaces
                          |
-             tiny head-centre neural network
+          tiny temporal head-centre neural network
                          |
              first-subject ownership tracker
                          |
@@ -50,35 +50,29 @@ The project should separate three responsibilities:
 3. **The tracker owns the first subject.** A deterministic state machine, not the
    neural network, prevents a later person from stealing the track.
 
-## First implementation
+## Baseline progression
 
 ### Neural input
 
-Start with two 8-bit planes at the model resolution:
+Keep two deliberately simple controls before the selected model:
 
 ```text
-channel 0 = current ISP luminance Y(t)
-channel 1 = clipped signed difference Y(t) - Y(t-1)
+control 1 = current ISP luminance Y(t)
+control 2 = Y(t) plus clipped signed difference Y(t) - Y(t-1)
 ```
 
 Signed change preserves whether a boundary became lighter or darker. The current
 luminance plane preserves the head evidence that absolute differencing destroys.
-The first experiment should keep the existing model body and its head-centre and
-sub-cell-offset outputs; only the first convolution changes from RGB to two input
-channels. This gives a causal test of temporal input before changing the network
-and the tracker at the same time.
+These controls identify whether temporal input helps before recurrence is added.
+The selected model then replaces instantaneous signed difference with decaying
+half-resolution positive and negative surfaces, adds displacement and a prior,
+and gives eight stride-8 channels fast/slow state. Its exact build is in
+[temporal-model-build.md](temporal-model-build.md).
 
-To reuse the trained spatial model, initialize the new luminance channel by summing
-its three RGB stem weights. This preserves the stem response that the RGB model
-would have produced if the same luminance were replicated into R, G, and B. Set the
-delta-channel weights to zero. The converted model then begins with an approximate
-old still-image behaviour and learns how much temporal evidence to add, instead of
-discarding that training.
-
-Pretrain or initialize from the existing still-head corpus. During fine-tuning,
-make frame pairs from video. Apply the same lens warp and base geometry to both
-frames, then apply a small relative transform for real object or camera motion.
-Independently warping the two frames would teach synthetic motion artefacts.
+Pretrain the appearance path from the existing still-head corpus. During temporal
+fine-tuning, make frame pairs from video and synthetic scenes. Apply the same lens
+warp and base camera geometry to every frame, then apply only the intended object
+or camera motion. Independently warping frames would teach synthetic artefacts.
 
 ### First-subject ownership
 
@@ -86,17 +80,17 @@ Independently warping the two frames would teach synthetic motion artefacts.
 machine:
 
 ```text
-SEARCHING -> CANDIDATE -> LOCKED -> COASTING -> LOST -> SEARCHING
+SEARCH -> CANDIDATE -> LOCKED -> OCCLUDED -> LOST -> SEARCH
 ```
 
-- `SEARCHING`: motion opens the detector; no target is owned.
+- `SEARCH`: motion opens the detector; no target is owned.
 - `CANDIDATE`: require consistent head detections over a few frames. The first
   confirmed candidate wins; simultaneous ties use a documented deterministic
   rule such as confidence and then distance from the image centre.
 - `LOCKED`: predict the owned centre with a constant-velocity alpha-beta or
   Kalman filter. Associate only a plausible detection near that prediction. New
   heads may be observed but cannot replace it.
-- `COASTING`: if the head stops, blurs, or is briefly occluded, continue the
+- `OCCLUDED`: if the head stops, blurs, or is briefly occluded, continue the
   prediction and run periodic semantic checks. Do not release ownership merely
   because the motion mask vanished.
 - `LOST`: release the target only after a configured absence interval. A later
@@ -198,13 +192,16 @@ frame solely to recreate luminance.
 
 The temporal buffers themselves are small but not free:
 
-| Resolution | One Y plane | `Y + delta` model input | Input + previous Y + background |
+| Resolution | One Y plane | earlier `Y + delta` input | Earlier input + previous Y + background |
 |---|---:|---:|---:|
 | 200 by 100 | 19.5 KiB | 39.1 KiB | 78.1 KiB |
 | 320 by 160 | 50.0 KiB | 100.0 KiB | 200.0 KiB |
 | 400 by 200 | 78.1 KiB | 156.3 KiB | 312.5 KiB |
 
-These are only raw pixel buffers. They exclude camera queues, alignment, neural
+This table illustrates the cost of the earlier full-resolution control, not the
+selected half-resolution P/N design. The selected persistent-state totals are
+21.45 kB, 54.40 kB, and 85.00 kB at these three resolutions. All of these figures
+exclude camera queues, alignment, neural
 activations, ESP-DL workspace, output maps, and firmware. The chip has 768 KiB of
 HP L2 memory plus in-package PSRAM [12]. Espressif also warns that PPA performance
 depends heavily on PSRAM bandwidth and degrades when other peripherals compete for
@@ -237,12 +234,14 @@ evidence narrowly:
 
 Run one controlled sequence:
 
-1. existing spatial model on current luminance only;
-2. the same model on current luminance plus signed difference;
-3. add the ownership state machine;
-4. add a learned previous-centre displacement only if step 3 still switches;
-5. test 200 by 100, 320 by 160, and 400 by 200 on the board;
-6. introduce camera compensation only after the fixed-camera system is sound.
+1. current luminance only;
+2. current luminance plus instantaneous signed difference;
+3. replace the difference with half-resolution decaying P/N surfaces;
+4. add displacement and corrupted previous-owner priors;
+5. compare no recurrent state, one pole, two poles, and temporal shift;
+6. add the deterministic ownership state machine;
+7. test 200 by 100, 320 by 160, and 400 by 200 on the board;
+8. introduce camera compensation only after the fixed-camera system is sound.
 
 Frame-wise AP is no longer enough. Report acquisition time, centre error, false
 acquisitions on non-head motion, first-subject retention, identity switches,

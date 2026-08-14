@@ -1,0 +1,27 @@
+# Concrete TMC-DTA experiment. Dimensions are [width, height].
+normal_resolution = [320, 160]
+comparison_resolutions = [[200, 100], [320, 160], [400, 200]]
+
+[model]
+stem_width = 8
+first_width = 16
+stride4_width = 24
+stride4_blocks = 1
+stride8_width = 64
+stride8_blocks = 7
+decoder_width = 16
+decoder_blocks = 2
+recurrent_channels = 8
+
+[temporal]
+# a = 1 - 2^-k. These starts are exactly shift-compatible in fixed point.
+fast_shift = 3
+slow_shift = 6
+learn_poles = true
+
+[motion]
+# P/N surfaces use normalized luminance and are clipped back to [0, 1].
+decay_shift = 4
+difference_clip = 0.25
+deadband = 0.01
+brightness_tile = 8

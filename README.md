@@ -8,11 +8,12 @@ ESP32-P4-Module-DEV-KIT with an OV5647 camera.
 ```text
 config/            values changed between runs
 docs/              one short document per project phase
-Research/          research index, progress, and one file per direction
+research/          research index, progress, and one file per direction
 python/
   download.py      download and compact the datasets
   preprocess.py    preview augmentation and training targets
   train.py         train and validate the PyTorch model
+  build_model.py   inspect the temporal model and its exact costs
   datasets/        one adapter per external dataset
   common/          shared Python helpers
 firmware/          ESP-IDF source, assembly, build output, and flashing notes
@@ -32,8 +33,9 @@ Experiments are represented by small config files, so a Git commit records the
 exact values used.
 
 The proposed shift from independent images to motion-guided video tracking is
-indexed and tracked in [`Research/README.md`](Research/README.md). The detailed
-study lives in one separately named direction file so the index remains short.
+indexed and tracked in [`research/README.md`](research/README.md). The detailed
+studies and concrete model build live in separately named files so the index
+remains short.
 
 ## Download the data
 

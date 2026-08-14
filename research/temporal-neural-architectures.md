@@ -21,6 +21,10 @@ previous-point injection, and head-centre displacement, designed for this memory
 budget. It should be treated as an unvalidated hypothesis until controlled
 experiments beat the simpler baselines.
 
+The selected instantiation, arithmetic audit, tensor contract, and code map are
+in [temporal-model-build.md](temporal-model-build.md). This file remains the
+wider family comparison and novelty boundary.
+
 A public English/Chinese web, GitHub, academic-index, and patent audit on 14 August
 2026 found no ESP32 implementation of CenterTrack,
 DeltaCNN/CBinfer/Skip-Convolutions, online TSM, MoViNet, VideoMamba, or a ConvLSTM
@@ -99,22 +103,23 @@ M(t) = U(t)
      + q_slow * (F(t-1) - S(t-1))
 ```
 
-Replace those eight channels with `M(t)` before the six stride-8 convolutional
+Replace those eight channels with `M(t)` before the seven stride-8 convolutional
 blocks. The remaining backbone then mixes the temporal signal spatially and across
-channels. Learn `a_fast`, `a_slow`, `q_fast`, and `q_slow` per channel. Constrain
-the two `a` values to `[0, 1]`, initialize the fast state near `0.5`, the slow state
-near `0.9375`, and initialize both `q` values to zero. The zero initialization
-makes this temporal adapter an exact pass-through rather than immediately
-perturbing the stride-8 features of a useful checkpoint. Initialize the
-previous-heatmap injection weights to zero for the same reason.
+channels. Use two shared learned poles and learn `q_fast` and `q_slow` per
+recurrent channel. Constrain the two poles to `[0, 1]` and initialize them at the
+shift-compatible values `a_fast = 1 - 2^-3 = 0.875` and
+`a_slow = 1 - 2^-6 = 0.984375`. Initialize both `q` values to zero. This makes the
+temporal adapter an exact pass-through rather than immediately perturbing the
+stride-8 features of a useful checkpoint. Initialize the previous-heatmap
+injection weights to zero for the same reason.
 
 This is a tiny diagonal state-space-inspired recurrence [4] and a close relative
 of earlier leaky multi-timescale visual units [16], not an invention of
-multi-timescale memory. For firmware, quantize the coefficients to Q7 and
-implement this recurrence in one small saturating C loop outside the exported
-convolution graph. Initial powers of two make the update expressible with shifts;
-learned Q7 coefficients are kept only if the measured accuracy gain justifies
-multiplication.
+multi-timescale memory. Start deployment with explicit state tensors and ordinary
+graph operations so the quantized reference is inspectable. After parity, test a
+registered fused module with Q7 coefficients and one saturating C/PIE loop. Initial
+powers of two make the update expressible with shifts; learned coefficients are
+kept only if the measured accuracy gain justifies multiplication.
 
 ### 4. Outputs
 
@@ -132,7 +137,7 @@ replace the ownership policy.
 
 ## Exact state pressure at 400 by 200
 
-The current two-scale model performs about 66.04 MMAC at this resolution. The
+The concrete temporal model performs 60.03 MMAC at this resolution. The
 important temporal comparison is memory traffic, not merely parameter count:
 
 | Temporal mechanism | Persistent INT8 state before alignment/workspace |
@@ -142,7 +147,7 @@ important temporal comparison is memory traffic, not merely parameter count:
 | Proposed fast + slow state, `m = 8` | 20,000 B |
 | Proposed fast + slow state, `m = 16` | 40,000 B |
 | ConvLSTM hidden + cell at 64 stride-8 channels | 160,000 B |
-| One cached output for each of six stride-8 body blocks | 480,000 B |
+| One cached output for each of seven stride-8 body blocks | 560,000 B |
 
 The last row is only a lower bound for a DeltaCNN-like conversion: it excludes
 the stride-4 layers, truncation buffers, sparse masks, halos, camera buffers, model
@@ -165,7 +170,7 @@ more hardware-friendly than arbitrary per-pixel sparsity [9].
 A plausible microcontroller adaptation would:
 
 - run the stem and stride-4 path densely;
-- permit skipping only in the six stride-8 blocks;
+- permit skipping only in the seven stride-8 blocks;
 - use fixed rectangular tiles and a compact bit mask, never lists of sparse pixel
   coordinates;
 - expand each active tile by the convolution halo;
