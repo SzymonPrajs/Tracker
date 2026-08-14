@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import math
 import random
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -17,17 +16,6 @@ from common.images import clip_labels
 SEMANTICS = ("head_center",)
 TARGET_KINDS = {"head", "face"}
 USED_SOURCES = {"crowdhuman", "open_images", "scut_head", "wider_face"}
-
-
-def iter_records(data_dir: Path) -> Iterator[dict[str, Any]]:
-    for labels_file in sorted(data_dir.glob("*/labels.jsonl")):
-        if labels_file.parent.name not in USED_SOURCES:
-            continue
-        with labels_file.open(encoding="utf-8") as file:
-            for line in file:
-                record = json.loads(line)
-                record["image_path"] = labels_file.parent / record["image"]
-                yield record
 
 
 def balanced_sample(data_dir: Path, count: int, seed: int) -> list[dict[str, Any]]:

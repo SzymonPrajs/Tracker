@@ -77,7 +77,7 @@ in [temporal-model-build.md](temporal-model-build.md).
 - [x] Recalculate shapes, convolution MACs, parameters, and persistent state.
 - [ ] Record a small fixed-camera OV5647 room dataset.
 - [ ] Add frame-pair loading and temporally consistent augmentation.
-- [ ] Train the luminance-only five-output spatial control.
+- [ ] Train the luminance-only five-output spatial control (`python/train.py` is that loop; it has not been run to convergence).
 - [ ] Add synthetic pairs, tracked video, displacement targets, and prior corruption.
 - [ ] Compare no state, one pole, two poles, and online temporal shift.
 - [ ] Implement and test the ownership state machine on the host.
@@ -86,12 +86,12 @@ in [temporal-model-build.md](temporal-model-build.md).
 
 ## Current decision
 
-The next implementation step is the sequence-data contract and the luminance-only
-five-output spatial control. The two-pole code exists so its exact cost and state
-can be inspected, but it is not yet evidence that recurrence helps. It must be
-compared against the same graph with no temporal state. No temporal model has been
-trained, and no ownership, camera-motion compensation, quantized runtime, or
-physical motion-tracking result exists yet.
+`python/train.py` now trains the five-output graph as spatial control (still
+images, zero motion/prior/state). The two-pole code exists so its cost can be
+inspected with `python/show_model.py`, but it is not yet evidence that recurrence
+helps. It must be compared against the same graph with no temporal state. No
+temporal model has been trained to convergence, and no ownership, camera-motion
+compensation, quantized runtime, or physical motion-tracking result exists yet.
 
 If a future investigation reaches a genuinely different conclusion—for example,
 an event-camera approach or a tracker with no semantic neural detector—it should

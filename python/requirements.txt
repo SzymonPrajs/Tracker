@@ -1,7 +1,7 @@
 Pillow
 tqdm
 gdown
-ijson
 requests
 numpy
 torch
+onnx

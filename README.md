@@ -1,90 +1,111 @@
 # Tracker
 
-A small hobby project for training a head locator and running it on an
-ESP32-P4-Module-DEV-KIT with an OV5647 camera.
+A small hobby project: find a head in a camera stream and run that model on a
+Waveshare **ESP32-P4-Module-DEV-KIT** with an **OV5647** camera.
 
-## Repository
+If you just cloned this, do these in order.
 
-```text
-config/            values changed between runs
-docs/              one short document per project phase
-research/          research index, progress, and one file per direction
-python/
-  download.py      download and compact the datasets
-  preprocess.py    preview augmentation and training targets
-  train.py         train and validate the PyTorch model
-  build_model.py   inspect the temporal model and its exact costs
-  datasets/        one adapter per external dataset
-  common/          shared Python helpers
-firmware/          ESP-IDF source, assembly, build output, and flashing notes
-data/              compact downloaded images (not committed)
-```
+## What you need
 
-This is the permanent style of the project:
+- a Mac
+- Python 3.10+
+- the P4 board, the OV5647, and a data-capable USB-C cable
+- later: ESP-IDF v5.5.2 (the hardware page installs it)
 
-- one obvious runnable script for each phase;
-- one readable config file for values that change between experiments;
-- small helpers in `python/common/` when two phases genuinely share code;
-- dataset-specific parsing only in `python/datasets/`;
-- no extra project layers or generated bookkeeping.
-
-The quantization phase will add `python/quantize.py` when it is implemented.
-Experiments are represented by small config files, so a Git commit records the
-exact values used.
-
-The proposed shift from independent images to motion-guided video tracking is
-indexed and tracked in [`research/README.md`](research/README.md). The detailed
-studies and concrete model build live in separately named files so the index
-remains short.
-
-## Download the data
+## 1. Python
 
 ```bash
 python3 -m pip install -r python/requirements.txt
+```
+
+## 2. Download the still-image corpus
+
+```bash
 python3 python/download.py
 ```
 
-Edit [`config/download.toml`](config/download.toml) to change image size,
-dataset sizes, or worker count. The bounded corpus contains face/head positives
-from three sources plus strict Open Images face/head negatives and official
-held-out splits. Each source is converted to compact WebP files no larger than
-400 by 200, and its raw archive is removed before the next source begins.
+This fills `data/` with compact WebP images and one `labels.jsonl` per source.
+Edit `config/download.toml` if you want a smaller set. Details:
+[docs/download.md](docs/download.md).
 
-See [`docs/download.md`](docs/download.md) for the exact mixture and commands.
-
-## Inspect preprocessing
+## 3. Look at preprocessing
 
 ```bash
 python3 python/preprocess.py
 ```
 
-This writes one local contact sheet to `previews/preprocess.png`. The left side
-of each tile shows transformed boxes and the right side shows the single
-head-center heatmap. It does not duplicate the dataset. Edit
-[`config/preprocess.toml`](config/preprocess.toml) to change input size,
-RGB/luminance mode, minimum target size, or augmentation strengths.
+Writes `previews/preprocess.png`. Same code path training uses. Config:
+`config/preprocess.toml`. Details: [docs/preprocess.md](docs/preprocess.md).
 
-## Train
+## 4. Train
+
+The network is already the streaming one: luminance + motion + prior + a
+small recurrent state. The first training loop is **spatial control** —
+still images, motion/prior/state are zeros, only heatmap and offset are
+trained. That is deliberate. Video pairs come next without changing the
+graph.
 
 ```bash
-python3 python/train.py
+python3 python/train.py --smoke          # a minute, real data
+python3 python/train.py                  # the real run
 ```
 
-The two-scale model trains directly from compact data and generates
-augmentation as it loads each batch. Edit [`config/train.toml`](config/train.toml)
-to change the model, source mixture, or optimizer. Checkpoints and decoded
-center-AP metrics are written under `runs/` and stay local. Run
-`python3 python/train.py --smoke` for a short real-data check.
+Checkpoints land in `runs/temporal_spatial/`. Config: `config/train.toml`
+and `config/temporal.toml`. Details: [docs/train.md](docs/train.md).
 
-## Phases
+Inspect the graph without data:
 
-1. [Download](docs/download.md)
-2. [Preprocess and augment](docs/preprocess.md)
-3. [Train](docs/train.md)
-4. [Characterize the hardware](docs/hardware.md)
-5. Quantize, fit, and retrain until the largest useful model fits
-6. Implement and measure the complete camera-to-output firmware
+```bash
+python3 python/show_model.py
+```
 
-The later steps intentionally feed back into input size and model size. If the
-model is too small, grow it; if activations, latency, or memory traffic do not
-fit, shrink or restructure it and train again.
+After a checkpoint exists, export ONNX (INT8 for the chip is the next
+addition to this same script):
+
+```bash
+python3 python/export.py --checkpoint runs/temporal_spatial/best.pt
+```
+
+## 5. Plug in the board
+
+[docs/hardware.md](docs/hardware.md) is the Mac install, the CSI cable, and
+the flash command. Short version, after ESP-IDF is installed:
+
+```bash
+. $HOME/esp/esp-idf/export.sh
+cd firmware
+idf.py set-target esp32p4
+idf.py -p /dev/cu.usbmodemXXXX flash monitor | tee ../hardware-check.log
+```
+
+You want `BOARD: OK` and `CAMERA: OK`, plus `PID=0x5647` in the log. Keep
+`hardware-check.log`.
+
+## Layout
+
+```text
+config/         numbers you change between runs
+docs/           how to run each script, plus the Mac board guide
+research/       the motion-first / temporal design notes
+python/
+  download.py   get and compact the datasets
+  datasets/     one parser per external source
+  preprocess.py preview
+  train.py      temporal model, spatial control first
+  show_model.py shapes, MACs, state bytes
+  export.py     checkpoint → ONNX
+  common/       code two scripts actually share
+firmware/       ESP-IDF app. Today: board + camera check.
+data/           local images, not committed
+```
+
+## Research
+
+The model and the training order live in [research/README.md](research/README.md).
+Read that if you want to know why motion surfaces and a two-pole state exist.
+Do not treat those notes as a second codebase.
+
+## For agents
+
+See [AGENTS.md](AGENTS.md). Keep this a handful of scripts a person can
+open. Do not add process documents or extra packages.

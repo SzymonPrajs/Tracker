@@ -1,21 +1,14 @@
-# The preprocessing config controls input size, color, and augmentation.
+# Spatial-control training of the temporal graph.
 preprocess_config = "config/preprocess.toml"
-output_dir = "runs/focused_400x200"
+model_config = "config/temporal.toml"
+output_dir = "runs/temporal_spatial"
 
 seed = 1234
 epochs = 30
 batch_size = 32
 num_workers = 4
-validation_fraction = 0.05
 device = "auto"               # auto, cpu, mps, or cuda
 mixed_precision = true         # used on CUDA; full precision on MPS/CPU
-
-[model]
-stem_width = 16
-stride4_width = 32
-stride4_blocks = 2
-stride8_width = 64
-stride8_blocks = 6
 
 [sampling]
 wider_face = 0.50

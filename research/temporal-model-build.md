@@ -52,32 +52,22 @@ The design is split by responsibility, without adding another package hierarchy:
 |---|---|
 | `config/temporal.toml` | Shapes, widths, pole starts, and motion constants |
 | `python/common/motion.py` | Construct and update the three half-resolution frame-derived state planes |
-| `python/common/temporal_model.py` | Define the neural graph and its two recurrent feature maps |
-| `python/build_model.py` | Instantiate the model and recalculate shapes, parameters, MACs, and state bytes |
+| `python/common/model.py` | The neural graph and its two recurrent feature maps |
+| `python/show_model.py` | Recalculate shapes, parameters, MACs, and state bytes |
+| `python/train.py` | Spatial-control training of that same graph |
+| `python/export.py` | Checkpoint to ONNX (INT8 later, in this file) |
 
 Run the inspection from the repository root:
 
 ```bash
-python3 python/build_model.py
+python3 python/show_model.py
 ```
 
 It performs a two-frame synthetic forward pass at every configured resolution.
 It does not download data, train, export, or claim a board result.
 
-Do not create one package per ablation. The later executable phases should remain
-simple top-level scripts:
-
-```text
-python/train.py           still-image spatial control
-python/train_temporal.py  synthetic pairs and contiguous clips
-python/track_video.py     host decoder and ownership behaviour
-python/quantize.py        selected graph only
-```
-
-Only add those files when their phase is implemented. Sequence loading and target
-construction may become `python/common/sequences.py` once both training and host
-evaluation share it. Ownership logic becomes `python/common/tracker.py` only when
-both host evaluation and firmware need the same specified behaviour.
+Do not create one package per ablation. Grow `train.py` when pairs and clips
+exist. Do not add `train_temporal.py`.
 
 ## Exact tensor contract
 

@@ -3,10 +3,14 @@
 .ruff_cache/
 **/__pycache__/
 *.py[cod]
+hardware-check.log
 
-# Downloaded images and generated firmware files stay local.
+# Local data and generated files stay on the machine.
 /data/
 /previews/
 /runs/
-/firmware/build/*
-!/firmware/build/.gitkeep
+/firmware/build/
+/firmware/sdkconfig
+/firmware/sdkconfig.old
+/firmware/managed_components/
+/firmware/dependencies.lock

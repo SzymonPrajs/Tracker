@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Build the temporal model and print shapes, MACs, and persistent state."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,8 +11,8 @@ from pathlib import Path
 import torch
 from torch import nn
 
+from common.model import model_from_config
 from common.motion import start_motion, update_motion
-from common.temporal_model import model_from_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build and inspect the temporal head-tracker model."
+        description="Inspect the temporal head-tracker model."
     )
     parser.add_argument("--config", type=Path, default=ROOT / "config/temporal.toml")
     return parser.parse_args()
@@ -34,11 +36,8 @@ def convolution_macs(
     ) -> None:
         nonlocal total
         assert isinstance(module, nn.Conv2d)
-        output_values = output.numel()
-        kernel_work = (
-            math.prod(module.kernel_size) * module.in_channels // module.groups
-        )
-        total += output_values * kernel_work
+        kernel_work = math.prod(module.kernel_size) * module.in_channels // module.groups
+        total += output.numel() * kernel_work
 
     hooks = [
         module.register_forward_hook(count)
@@ -74,17 +73,13 @@ def inspect_resolution(
         model, (second, motion, prior, state.fast, state.slow)
     )
     prediction, next_fast, _ = outputs
-
-    motion_bytes = 3 * motion.shape[-2] * motion.shape[-1]
-    prior_bytes = prior.shape[-2] * prior.shape[-1]
-    recurrent_bytes = 2 * next_fast.numel()
     return {
         "output": tuple(prediction.shape),
         "state": tuple(next_fast.shape),
         "macs": macs,
-        "motion_bytes": motion_bytes,
-        "prior_bytes": prior_bytes,
-        "recurrent_bytes": recurrent_bytes,
+        "motion_bytes": 3 * motion.shape[-2] * motion.shape[-1],
+        "prior_bytes": prior.shape[-2] * prior.shape[-1],
+        "recurrent_bytes": 2 * next_fast.numel(),
     }
 
 
@@ -95,10 +90,8 @@ def main() -> None:
 
     torch.manual_seed(0)
     model = model_from_config(config).eval()
-    trainable = sum(
-        parameter.numel() for parameter in model.parameters() if parameter.requires_grad
-    )
-    deployed_conv = sum(
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    deployed = sum(
         module.weight.numel() + module.out_channels
         for module in model.modules()
         if isinstance(module, nn.Conv2d)
@@ -106,7 +99,7 @@ def main() -> None:
 
     print(f"config: {args.config}")
     print(f"trainable PyTorch parameters: {trainable:,}")
-    print(f"BN-folded convolution coefficients: {deployed_conv:,}")
+    print(f"BN-folded convolution coefficients: {deployed:,}")
     print("resolution  output          state           conv MAC   persistent INT8")
     for width, height in config["comparison_resolutions"]:
         result = inspect_resolution(model, config, width, height)

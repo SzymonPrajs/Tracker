@@ -1,8 +1,8 @@
-# The first clean run uses every retained pixel in the compact cache.
-input_width = 400
-input_height = 200
+# Match the temporal model's usual host size. 400x200 is a later comparison.
+input_width = 320
+input_height = 160
 output_stride = 4
-color = "rgb"                 # "rgb" or "luminance"
+color = "luminance"           # the temporal model takes one luminance plane
 minimum_target_pixels = 12     # smaller annotated heads are masked, not negative
 maximum_train_targets = 20     # skip very dense crowd frames during training
 
