@@ -8,6 +8,7 @@ ESP32-P4-Module-DEV-KIT with an OV5647 camera.
 ```text
 config/            values changed between runs
 docs/              one short document per project phase
+Research/          one compact motion-first tracking study
 python/
   download.py      download and compact the datasets
   preprocess.py    preview augmentation and training targets
@@ -29,6 +30,11 @@ This is the permanent style of the project:
 The quantization phase will add `python/quantize.py` when it is implemented.
 Experiments are represented by small config files, so a Git commit records the
 exact values used.
+
+The proposed shift from independent images to motion-guided video tracking is
+summarized in [`Research/README.md`](Research/README.md). It keeps the existing
+head detector as spatial initialization and adds temporal input plus persistent
+first-subject ownership.
 
 ## Download the data
 
