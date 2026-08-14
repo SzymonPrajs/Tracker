@@ -62,6 +62,22 @@ tensor contract, corrected architecture order, exact verified arithmetic, code
 boundaries, training sequence, deployment boundary, and remaining questions are
 in [temporal-model-build.md](temporal-model-build.md).
 
+### 4. Temporal tracking data
+
+**Status:** public-data, own-capture, and Mac-local annotation design complete;
+the OV5647 pilot has not yet been recorded or labelled.
+
+There is no single perfect dataset. The selected small combination is CAVIAR's
+partially head-enriched indoor sequences after a coverage audit, JRDB-Pose for
+broad real head trajectories, ChokePoint for fixed-camera portal walking, a
+capped HT21 subset for hard association, and our own OV5647 recordings for the
+actual sensor and room.
+The document defines exactly what to annotate, a CVAT-based Mac workflow with
+model pre-labelling, compact storage, capture scenarios, temporal augmentation,
+split rules, and the first experiment.
+
+Read [tracking-data.md](tracking-data.md).
+
 ## Progress
 
 - [x] Define the motion, neural recognition, and tracking responsibilities.
@@ -75,6 +91,8 @@ in [temporal-model-build.md](temporal-model-build.md).
 - [x] Audit the concrete TMC-DTA proposal and separate exact results from estimates.
 - [x] Implement the float motion surfaces and recurrent neural graph.
 - [x] Recalculate shapes, convolution MACs, parameters, and persistent state.
+- [x] Select a bounded public-video mixture and local annotation workflow.
+- [x] Define the OV5647 pilot, track schema, split rules, and temporal augmentation.
 - [ ] Record a small fixed-camera OV5647 room dataset.
 - [ ] Add frame-pair loading and temporally consistent augmentation.
 - [ ] Train the luminance-only five-output spatial control (`python/train.py` is that loop; it has not been run to convergence).
